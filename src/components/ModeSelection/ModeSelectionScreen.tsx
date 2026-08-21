@@ -7,7 +7,6 @@ interface Props {
 const D = 'var(--font-display)'
 const B = 'var(--font-body)'
 const GOLD = 'var(--gold)'
-const GOLD_BRIGHT = 'var(--gold-bright)'
 
 export default function ModeSelectionScreen({ onSelect }: Props) {
   return (
