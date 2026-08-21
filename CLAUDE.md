@@ -98,6 +98,15 @@ Each power has its own file with three functions: `get<X>Targets`, `apply<X>Move
 - [ ] **Stats**: win rate, most-used cards, etc.
 - [ ] **Invite via link**: generate a game link to challenge a specific person
 
+### TCG progression system (big vision)
+Core idea: new players start with 2 basic cards and unlock the full collection through play.
+
+- [ ] **Campaign mode**: players face each character they don't own as an AI opponent; beating them offers that character's card as a reward — teaches the power before you can use it
+- [ ] **Achievement-gated cards**: certain rarities (legendary, space) only unlock by hitting milestones — e.g. reach rating X, win N games, win with every character, etc.
+- [ ] **In-game currency**: earned by playing games (win/lose/ranked bonuses); used to buy booster packs
+- [ ] **Booster packs**: random card drops with rarity weighting; classic TCG pull feel
+- [ ] **Collection screen**: view all cards owned vs. locked, with unlock hints for locked ones
+
 ### Design / polish
 - [ ] **Drag and drop**: drag pieces to move them instead of click-click — needs careful integration with the multi-step power modes (Unipop L-path, Robin Rook choice, Chessbeard select) where drag alone can't express the full interaction, so click-click must remain as a fallback
 - [ ] **Improve overall design**: more character, more of the card art used throughout the UI
