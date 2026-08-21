@@ -15,12 +15,13 @@ export default function ModeSelectionScreen({ onSelect }: Props) {
     >
       <header className="mb-10 text-center">
         <img
-          src="/images/logo.png"
+          src="/images/banner.png"
           alt="Happy Pawn Cards"
           style={{
-            width: 'clamp(260px, 55vw, 420px)',
-            filter: 'drop-shadow(0 0 40px rgba(201,162,39,0.45))',
-            marginBottom: '8px',
+            width: 'clamp(320px, 80vw, 780px)',
+            borderRadius: '16px',
+            filter: 'drop-shadow(0 4px 32px rgba(0,0,0,0.6))',
+            marginBottom: '20px',
           }}
         />
         <p style={{

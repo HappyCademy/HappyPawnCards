@@ -129,18 +129,17 @@ export default function App() {
       className="game-bg min-h-screen flex flex-col items-center py-4 px-4"
     >
       {/* Header */}
-      <header className="mb-4 text-center">
-        <h1 style={{
-          fontFamily: D,
-          fontSize: '1.5rem',
-          fontWeight: 700,
-          color: 'var(--gold-bright)',
-          letterSpacing: '0.06em',
-          textShadow: '0 0 20px rgba(201,162,39,0.4), 0 2px 10px rgba(0,0,0,0.8)',
-        }}>
-          ♟ Happy Pawn Cards
-        </h1>
-        <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '11px', marginTop: '2px', letterSpacing: '0.08em' }}>
+      <header className="mb-3 text-center flex flex-col items-center">
+        <img
+          src="/images/logo.png"
+          alt="Happy Pawn Cards"
+          style={{
+            height: 'clamp(56px, 10vw, 80px)',
+            filter: 'drop-shadow(0 0 16px rgba(201,162,39,0.4))',
+            marginBottom: '2px',
+          }}
+        />
+        <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '11px', letterSpacing: '0.08em' }}>
           {isVsPlayer ? 'VS Player' : 'VS Computer'}
         </p>
       </header>
