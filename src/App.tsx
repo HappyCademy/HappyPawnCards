@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useChessGame, type GameMode, type GameStatus } from './hooks/useChessGame'
-import type { Color } from 'chess.js'
+import { useChessGame, type GameMode, type GameStatus, type BoardPiece } from './hooks/useChessGame'
+import type { Color, PieceSymbol } from 'chess.js'
 import Board from './components/Board/Board'
 import GameInfo from './components/GameInfo/GameInfo'
 import CardSelectionScreen from './components/CardSelection/CardSelectionScreen'
 import ModeSelectionScreen, { type GameMode as UiGameMode } from './components/ModeSelection/ModeSelectionScreen'
 import { RARITIES, type CardVariant, pickRandomCards } from './data/cards'
 import { CARD_POWERS } from './data/powers'
+import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 
 type AppScreen = 'mode' | 'p1-selection' | 'p2-selection' | 'game'
 
@@ -124,6 +125,12 @@ export default function App() {
   const topLabel = isVsPlayer ? 'Player 2 (Black)' : 'AI (Black)'
   const bottomLabel = isVsPlayer ? 'Player 1 (White)' : 'You (White)'
 
+  const { byWhite, byBlack } = computeCaptured(board)
+  const whitePoints = byWhite.reduce((s, t) => s + CAPTURE_VALUES[t], 0)
+  const blackPoints = byBlack.reduce((s, t) => s + CAPTURE_VALUES[t], 0)
+  const whiteAdvantage = Math.max(0, whitePoints - blackPoints)
+  const blackAdvantage = Math.max(0, blackPoints - whitePoints)
+
   return (
     <div
       className="game-bg min-h-screen flex flex-col items-center py-4 px-4"
@@ -145,7 +152,7 @@ export default function App() {
       </header>
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
-        {/* Top: black/AI cards */}
+        {/* Top: black/AI cards + black's captures */}
         {pickedCards && (
           <CardStrip
             label={topLabel}
@@ -154,6 +161,7 @@ export default function App() {
             onCardClick={setZoomedCard}
           />
         )}
+        <CapturedPieces pieces={byBlack} capturedColor="w" advantage={blackAdvantage} />
 
         {/* Middle: board + sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-center gap-4 w-full">
@@ -187,7 +195,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bottom: white/player cards */}
+        {/* Bottom: white's captures + white/player cards */}
+        <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
         {pickedCards && (
           <CardStrip
             label={bottomLabel}
@@ -263,6 +272,70 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Captured pieces ───────────────────────────────────────────────────────────
+
+type CaptureSymbol = Exclude<PieceSymbol, 'k'>
+const CAPTURE_ORDER: CaptureSymbol[] = ['q', 'r', 'b', 'n', 'p']
+const CAPTURE_VALUES: Record<CaptureSymbol, number> = { q: 9, r: 5, b: 3, n: 3, p: 1 }
+const INITIAL_COUNTS: Record<CaptureSymbol, number> = { q: 1, r: 2, b: 2, n: 2, p: 8 }
+
+function computeCaptured(board: (BoardPiece | null)[][]) {
+  const counts = {
+    w: { q: 0, r: 0, b: 0, n: 0, p: 0 } as Record<CaptureSymbol, number>,
+    b: { q: 0, r: 0, b: 0, n: 0, p: 0 } as Record<CaptureSymbol, number>,
+  }
+  for (const row of board) {
+    for (const piece of row) {
+      if (!piece || piece.type === 'k') continue
+      counts[piece.color][piece.type as CaptureSymbol]++
+    }
+  }
+  const byWhite: CaptureSymbol[] = []
+  const byBlack: CaptureSymbol[] = []
+  for (const t of CAPTURE_ORDER) {
+    for (let i = 0; i < Math.max(0, INITIAL_COUNTS[t] - counts.b[t]); i++) byWhite.push(t)
+    for (let i = 0; i < Math.max(0, INITIAL_COUNTS[t] - counts.w[t]); i++) byBlack.push(t)
+  }
+  return { byWhite, byBlack }
+}
+
+function CapturedPieces({ pieces, capturedColor, advantage, onPieceClick }: {
+  pieces: CaptureSymbol[]
+  capturedColor: Color
+  advantage: number
+  onPieceClick?: (type: CaptureSymbol, index: number) => void
+}) {
+  const { pieceSet } = usePieceSet()
+  if (pieces.length === 0 && advantage <= 0) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1px', minHeight: '22px', paddingLeft: '4px' }}>
+      {pieces.map((type, i) => (
+        <button
+          key={i}
+          onClick={() => onPieceClick?.(type, i)}
+          style={{
+            width: '22px', height: '22px', padding: 0, border: 'none', background: 'none',
+            cursor: onPieceClick ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <img
+            src={pieceUrl(pieceSet, capturedColor, type)}
+            alt={type}
+            draggable={false}
+            style={{ width: '20px', height: '20px', opacity: 0.8 }}
+          />
+        </button>
+      ))}
+      {advantage > 0 && (
+        <span style={{ fontFamily: B, fontSize: '11px', fontWeight: 700, color: 'var(--ivory-dim)', marginLeft: '4px' }}>
+          +{advantage}
+        </span>
       )}
     </div>
   )
