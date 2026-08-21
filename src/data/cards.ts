@@ -45,16 +45,16 @@ const RARITY_EXT: Record<Rarity, string> = {
 }
 
 const CHARACTERS: { id: string; name: string }[] = [
-  { id: 'black-king',     name: 'Black King'     },
-  { id: 'chessbeard',     name: 'Chessbeard'     },
-  { id: 'crystal-queen',  name: 'Crystal Queen'  },
-  { id: 'general-gambit', name: 'General Gambit' },
   { id: 'happy-pawn',     name: 'Happy Pawn'     },
+  { id: 'chessbeard',     name: 'Chessbeard'     },
+  { id: 'black-king',     name: 'Black King'     },
+  { id: 'general-gambit', name: 'General Gambit' },
   { id: 'kings-guard',    name: "King's Guard"   },
-  { id: 'pirate-queen',   name: 'Pirate Queen'   },
   { id: 'puzzle-pete',    name: 'Puzzle Pete'    },
-  { id: 'robin-rook',     name: 'Robin Rook'     },
+  { id: 'crystal-queen',  name: 'Crystal Queen'  },
   { id: 'unipop',         name: 'Unipop'         },
+  { id: 'robin-rook',     name: 'Robin Rook'     },
+  { id: 'pirate-queen',   name: 'Pirate Queen'   },
 ]
 
 export const ALL_CARDS: CardVariant[] = CHARACTERS.flatMap(char =>

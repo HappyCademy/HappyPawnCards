@@ -14,22 +14,16 @@ export default function ModeSelectionScreen({ onSelect }: Props) {
     <div
       className="screen-bg min-h-screen flex flex-col items-center justify-center py-12 px-4"
     >
-      <header className="mb-14 text-center">
-        <div style={{ marginBottom: '12px', opacity: 0.7 }}>
-          <span style={{ fontSize: '48px', filter: 'drop-shadow(0 0 20px rgba(201,162,39,0.6))' }}>♟</span>
-        </div>
-        <h1 style={{
-          fontFamily: D,
-          fontSize: 'clamp(2rem, 6vw, 3.4rem)',
-          fontWeight: 700,
-          color: GOLD_BRIGHT,
-          letterSpacing: '0.06em',
-          textShadow: '0 0 40px rgba(201,162,39,0.55), 0 2px 24px rgba(0,0,0,0.9)',
-          lineHeight: 1.1,
-          marginBottom: '12px',
-        }}>
-          Happy Pawn Cards
-        </h1>
+      <header className="mb-10 text-center">
+        <img
+          src="/images/logo.png"
+          alt="Happy Pawn Cards"
+          style={{
+            width: 'clamp(260px, 55vw, 420px)',
+            filter: 'drop-shadow(0 0 40px rgba(201,162,39,0.45))',
+            marginBottom: '8px',
+          }}
+        />
         <p style={{
           fontFamily: B,
           color: 'var(--ivory-dim)',
