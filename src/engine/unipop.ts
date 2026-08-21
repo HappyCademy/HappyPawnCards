@@ -1,121 +1,111 @@
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 
-export type Dir = 'up' | 'down' | 'left' | 'right'
-
 export interface UnipopState {
   knightSquare: Square
-  path: Square[]   // squares visited so far: length 0 (just selected), 1 (after step1), 2 (after step2)
-  dirs: Dir[]      // directions taken so far
+  destination: Square | null  // null = phase 0 (picking destination)
+  path: Square[]              // not used during selection; kept for API compat
 }
 
-const DIR_DELTA: Record<Dir, [number, number]> = {
-  up:    [0,  1],
-  down:  [0, -1],
-  left:  [-1, 0],
-  right: [1,  0],
+function toSquare(file: number, rank: number): Square | null {
+  if (file < 0 || file > 7 || rank < 0 || rank > 7) return null
+  return (String.fromCharCode(97 + file) + (rank + 1)) as Square
 }
 
-const OPPOSITE: Record<Dir, Dir> = {
-  up: 'down', down: 'up', left: 'right', right: 'left',
+function coords(sq: Square): [number, number] {
+  return [sq.charCodeAt(0) - 97, parseInt(sq[1]) - 1]
 }
 
-const PERPENDICULAR: Record<Dir, Dir[]> = {
-  up:    ['left', 'right'],
-  down:  ['left', 'right'],
-  left:  ['up',   'down'],
-  right: ['up',   'down'],
+// All 8 knight destinations from `from`, excluding friendly-occupied squares
+export function getAllKnightDestinations(chess: Chess, from: Square): Square[] {
+  const [ff, fr] = coords(from)
+  const deltas: [number, number][] = [
+    [-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1],
+  ]
+  return deltas
+    .map(([df, dr]) => toSquare(ff + df, fr + dr))
+    .filter((sq): sq is Square => {
+      if (!sq) return false
+      const p = chess.get(sq)
+      return !p || p.color !== chess.turn()
+    })
 }
 
-const ALL_DIRS: Dir[] = ['up', 'down', 'left', 'right']
-
-export function applyDir(sq: Square, dir: Dir): Square | null {
-  const file = sq.charCodeAt(0) - 97
-  const rank = parseInt(sq[1]) - 1
-  const [df, dr] = DIR_DELTA[dir]
-  const nf = file + df
-  const nr = rank + dr
-  if (nf < 0 || nf > 7 || nr < 0 || nr > 7) return null
-  return (String.fromCharCode(97 + nf) + (nr + 1)) as Square
+// The 2 "corner" squares representing the bend point of each L-path from `from` to `to`
+// Corner A = (to_file, from_rank): go along file axis first
+// Corner B = (from_file, to_rank): go along rank axis first
+export function getPathCorners(from: Square, to: Square): Square[] {
+  const [ff, fr] = coords(from)
+  const [tf, tr] = coords(to)
+  return ([
+    toSquare(tf, fr),
+    toSquare(ff, tr),
+  ] as (Square | null)[])
+    .filter((sq): sq is Square => sq !== null && sq !== from && sq !== to)
 }
 
-function friendlyAt(chess: Chess, sq: Square): boolean {
-  const piece = chess.get(sq)
-  return !!piece && piece.color === chess.turn()
+// All squares between `from` and `to` through `corner` (excludes `from`, includes `to`)
+export function getPathSquares(from: Square, to: Square, corner: Square): Square[] {
+  const squares: Square[] = []
+
+  function walk(sf: number, sr: number, ef: number, er: number, skipFirst: boolean) {
+    const df = Math.sign(ef - sf)
+    const dr = Math.sign(er - sr)
+    const steps = Math.max(Math.abs(ef - sf), Math.abs(er - sr))
+    for (let i = skipFirst ? 1 : 0; i <= steps; i++) {
+      const sq = toSquare(sf + df * i, sr + dr * i)
+      if (sq) squares.push(sq)
+    }
+  }
+
+  const [ff, fr] = coords(from)
+  const [cf, cr] = coords(corner)
+  const [tf, tr] = coords(to)
+  walk(ff, fr, cf, cr, true)
+  walk(cf, cr, tf, tr, true)
+  return squares
 }
 
-// Phase 1: all 4 orthogonal squares — knight can pass through friendly pieces
-export function getPhase1Targets(_chess: Chess, knightSquare: Square): Square[] {
-  return ALL_DIRS
-    .map(dir => applyDir(knightSquare, dir))
-    .filter((sq): sq is Square => sq !== null)
-}
-
-// Phase 2: 3 directions (no going back) — knight can pass through friendly pieces
-export function getPhase2Targets(_chess: Chess, state: UnipopState): Square[] {
-  const from = state.path[0]
-  const came = state.dirs[0]
-  return ALL_DIRS
-    .filter(dir => dir !== OPPOSITE[came])
-    .map(dir => applyDir(from, dir))
-    .filter((sq): sq is Square => sq !== null)
-}
-
-// Phase 3: must-turn or must-continue depending on step 2
-export function getPhase3Targets(chess: Chess, state: UnipopState): Square[] {
-  const from = state.path[1]
-  const dir1 = state.dirs[0]
-  const dir2 = state.dirs[1]
-  const allowed = dir2 === dir1 ? PERPENDICULAR[dir2] : [dir2]
-  return allowed
-    .map(dir => applyDir(from, dir))
-    .filter((sq): sq is Square => sq !== null && !friendlyAt(chess, sq))
-}
-
-// Get the current valid targets given the state
+// Get valid targets for the current phase
 export function getUnipopTargets(chess: Chess, state: UnipopState): Square[] {
-  if (state.dirs.length === 0) return getPhase1Targets(chess, state.knightSquare)
-  if (state.dirs.length === 1) return getPhase2Targets(chess, state)
-  return getPhase3Targets(chess, state)
+  if (state.destination === null) {
+    return getAllKnightDestinations(chess, state.knightSquare)
+  }
+  return getPathCorners(state.knightSquare, state.destination)
 }
 
-// Which squares on the already-walked path have enemy pieces (will be captured)
-export function getPathCaptures(chess: Chess, state: UnipopState): Square[] {
-  return state.path.filter(sq => {
+// Which path squares contain enemy pieces (captured during the move)
+export function getPathCaptures(chess: Chess, pathSquares: Square[], turn: 'w' | 'b'): Square[] {
+  return pathSquares.filter(sq => {
     const p = chess.get(sq)
-    return p && p.color !== chess.turn()
+    return p && p.color !== turn
   })
 }
 
-// Apply the Unipop move via FEN manipulation and return the new Chess instance
-export function applyUnipopMove(chess: Chess, state: UnipopState, finalSquare: Square): Chess {
-  const fullPath: Square[] = [...state.path, finalSquare]
+// Apply the Unipop move; pathSquares = all squares from origin (exclusive) to destination (inclusive)
+export function applyUnipopMove(chess: Chess, knightSquare: Square, pathSquares: Square[]): Chess {
   const isWhite = chess.turn() === 'w'
   const knightFen = isWhite ? 'N' : 'n'
+  const finalSquare = pathSquares[pathSquares.length - 1]
 
   let fen = chess.fen()
 
-  // Remove the knight from its starting square
-  fen = setPieceInFen(fen, state.knightSquare, null)
+  fen = setPieceInFen(fen, knightSquare, null)
 
-  // On intermediate squares: only remove enemy pieces (friendly pieces are jumped over, not captured)
-  // On the final square: always clear it (phase 3 already ensures it's not a friendly)
-  for (let i = 0; i < fullPath.length; i++) {
-    const sq = fullPath[i]
-    const isFinal = i === fullPath.length - 1
+  for (let i = 0; i < pathSquares.length; i++) {
+    const sq = pathSquares[i]
+    const isFinal = i === pathSquares.length - 1
     const piece = chess.get(sq)
     if (isFinal || (piece && piece.color !== (isWhite ? 'w' : 'b'))) {
       fen = setPieceInFen(fen, sq, null)
     }
   }
 
-  // Place knight at final square
   fen = setPieceInFen(fen, finalSquare, knightFen)
 
-  // Update FEN metadata: toggle turn, reset halfmove clock, increment fullmove if black just moved
   const parts = fen.split(' ')
   parts[1] = isWhite ? 'b' : 'w'
-  parts[4] = '0'  // halfmove clock resets on any piece move
+  parts[4] = '0'
   if (!isWhite) parts[5] = String(parseInt(parts[5]) + 1)
   fen = parts.join(' ')
 

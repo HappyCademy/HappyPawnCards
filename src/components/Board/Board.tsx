@@ -100,7 +100,7 @@ export default function Board({
   const blackPieceImageMap = buildPieceImageMap(aiCards)
 
   const hasUnipop = playerCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
-  const isUnipopBuildingPath = unipopState !== null && unipopState.dirs.length < 2
+  const isUnipopBuildingPath = unipopState !== null && unipopState.destination !== null
 
   // ── Drag and drop ─────────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState<{

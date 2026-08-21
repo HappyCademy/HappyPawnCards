@@ -9,7 +9,7 @@ import { CARD_POWERS } from '../data/powers'
 import {
   type UnipopState,
   getUnipopTargets,
-  getPathCaptures,
+  getPathSquares,
   applyUnipopMove,
 } from '../engine/unipop'
 import { getRookShootTargets, getAllDirShootTargets, applyRookShoot } from '../engine/robinrook'
@@ -342,35 +342,25 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
     // ── Unipop L-path mode ───────────────────────────────────────────────
     if (unipopState) {
-      const phase = unipopState.dirs.length
-      if (phase < 2) {
+      if (unipopState.destination === null) {
+        // Phase 0: pick destination
         if (validTargets.includes(square)) {
-          const newPath = [...unipopState.path, square] as Square[]
-          const from = phase === 0 ? unipopState.knightSquare : unipopState.path[0]
-          const fileDiff = square.charCodeAt(0) - from.charCodeAt(0)
-          const rankDiff = parseInt(square[1]) - parseInt(from[1])
-          const dir = fileDiff > 0 ? 'right' : fileDiff < 0 ? 'left' : rankDiff > 0 ? 'up' : 'down'
-          const newState: UnipopState = {
-            ...unipopState,
-            path: newPath,
-            dirs: [...unipopState.dirs, dir as UnipopState['dirs'][number]],
-          }
+          const newState: UnipopState = { ...unipopState, destination: square }
           setUnipopState(newState)
           setValidTargets(getUnipopTargets(chess, newState))
-          setUnipopPathCaptures(getPathCaptures(chess, newState))
           return
         }
-        // Anything that isn't a valid path step cancels Unipop (never falls through to selection)
         clearSelection(); return
       } else {
+        // Phase 1: pick corner (L-path direction) → execute immediately
         if (validTargets.includes(square)) {
-          const fullPath = [...unipopState.path, square] as Square[]
+          const pathSquares = getPathSquares(unipopState.knightSquare, unipopState.destination, square)
           const before = chess
-          const moved = applyUnipopMove(chess, unipopState, square)
+          const moved = applyUnipopMove(chess, unipopState.knightSquare, pathSquares)
           const after = withRespawns(before, moved)
           chessRef.current = after
-          setLastMove({ from: unipopState.knightSquare, to: square })
-          triggerFireTrail(fullPath)
+          setLastMove({ from: unipopState.knightSquare, to: unipopState.destination })
+          triggerFireTrail(pathSquares)
           clearSelection()
           bump()
           return
@@ -528,7 +518,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     if (hasSpaceUnipop && piece.type === 'n') {
       setValidTargets(applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color))
     } else if (hasUnipop && piece.type === 'n') {
-      const state: UnipopState = { knightSquare: square, path: [], dirs: [] }
+      const state: UnipopState = { knightSquare: square, destination: null, path: [] }
       setUnipopState(state)
       setValidTargets(applyImmunityFilter(getUnipopTargets(chess, state), piece.color))
       setUnipopPathCaptures([])
