@@ -46,7 +46,7 @@ export default function ModeSelectionScreen({ onSelect }: Props) {
           onClick={() => onSelect('vsComputer')}
         />
         <ModeCard
-          icon="🤝"
+          image="/images/vs-player.png"
           title="VS Player"
           description="Pass & play on the same device"
           color="#a08fff"
