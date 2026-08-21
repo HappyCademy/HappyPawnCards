@@ -8,7 +8,7 @@
 import { Chess } from 'chess.js'
 import type { Square, PieceSymbol } from 'chess.js'
 import { applyPseudoLegalMove } from './pseudolegal'
-import { applyUnipopMove, applyDir, type Dir, type UnipopState } from './unipop'
+import { applyUnipopMove, getAllKnightDestinations, getPathCorners, getPathSquares } from './unipop'
 import { getRookShootTargets, applyRookShoot } from './robinrook'
 import { getHappyPawnTargets, applyHappyPawnPush } from './happypawn'
 import { getPuzzlePeteBishopTargets } from './puzzlepete'
@@ -92,51 +92,24 @@ function tryPuzzlePete(chess: Chess): AIPowerMove | null {
 
 // ── Unipop: enumerate all L-paths, pick the one that captures the most ────────
 
-const ALL_DIRS: Dir[] = ['up', 'down', 'left', 'right']
-const OPP: Record<Dir, Dir>    = { up: 'down', down: 'up', left: 'right', right: 'left' }
-const PERP: Record<Dir, Dir[]> = {
-  up:    ['left', 'right'],
-  down:  ['left', 'right'],
-  left:  ['up',   'down'],
-  right: ['up',   'down'],
-}
-
 function tryUnipop(chess: Chess): AIPowerMove | null {
-  let best: { state: UnipopState; finalSq: Square; score: number } | null = null
+  let best: { from: Square; to: Square; pathSquares: Square[]; score: number } | null = null
 
   for (const row of chess.board()) {
     for (const p of row) {
       if (!p || p.type !== 'n' || p.color !== 'b') continue
       const kSq = p.square
 
-      for (const dir1 of ALL_DIRS) {
-        const sq1 = applyDir(kSq, dir1)
-        if (!sq1) continue
-
-        for (const dir2 of ALL_DIRS.filter(d => d !== OPP[dir1])) {
-          const sq2 = applyDir(sq1, dir2)
-          if (!sq2) continue
-
-          for (const dir3 of (dir2 === dir1 ? PERP[dir2] : [dir2])) {
-            const sq3 = applyDir(sq2, dir3)
-            if (!sq3) continue
-            const p3 = chess.get(sq3)
-            if (p3 && p3.color === 'b') continue   // can't land on friendly
-
-            // Score = value of white pieces destroyed along the full path
-            let score = 0
-            for (const sq of [sq1, sq2, sq3]) {
-              const piece = chess.get(sq)
-              if (piece && piece.color === 'w') score += VALUES[piece.type]
-            }
-
-            if (!best || score > best.score) {
-              best = {
-                state: { knightSquare: kSq, path: [sq1, sq2], dirs: [dir1, dir2] },
-                finalSq: sq3,
-                score,
-              }
-            }
+      for (const dest of getAllKnightDestinations(chess, kSq)) {
+        for (const corner of getPathCorners(kSq, dest)) {
+          const pathSquares = getPathSquares(kSq, dest, corner)
+          let score = 0
+          for (const sq of pathSquares) {
+            const piece = chess.get(sq)
+            if (piece && piece.color === 'w') score += VALUES[piece.type]
+          }
+          if (!best || score > best.score) {
+            best = { from: kSq, to: dest, pathSquares, score }
           }
         }
       }
@@ -144,13 +117,12 @@ function tryUnipop(chess: Chess): AIPowerMove | null {
   }
 
   if (!best) return null
-  // Move even with no captures 35% of the time (exercises the code path)
   if (best.score === 0 && Math.random() > 0.35) return null
 
   return {
-    newChess: applyUnipopMove(chess, best.state, best.finalSq),
-    from: best.state.knightSquare,
-    to: best.finalSq,
+    newChess: applyUnipopMove(chess, best.from, best.pathSquares),
+    from: best.from,
+    to: best.to,
   }
 }
 

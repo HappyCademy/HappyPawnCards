@@ -22,7 +22,7 @@ export default function GameInfo({ state, actions }: Props) {
   const isGameOver = status !== 'playing'
   const isUnipopActive = unipopState !== null
   const isUnipopBonus = unipopBonusSquare !== null
-  const unipopPhase = unipopState ? unipopState.dirs.length + 1 : 0
+  const unipopPhase = unipopState ? (unipopState.destination === null ? 1 : 2) : 0
   const isRookChoosing = rookChoiceSquare !== null
   const isBlackKingBonus = blackKingBonusSquare !== null
   const isChessbeardActive = isChessbeardSelectMode || chessbeardSacrificeSquare !== null
@@ -101,7 +101,7 @@ export default function GameInfo({ state, actions }: Props) {
     statusIcon = '🦄'; statusLine = 'Double Jump — jump again or click anywhere to pass'
     statusColor = '#c084fc'; bannerBorderColor = 'rgba(192,132,252,0.35)'
   } else if (isUnipopActive) {
-    statusIcon = '🦄'; statusLine = `Unipop — pick direction ${unipopPhase} of 3`
+    statusIcon = '🦄'; statusLine = unipopPhase === 1 ? 'Unipop — pick a destination' : 'Unipop — pick which L-path'
     statusColor = '#c084fc'; bannerBorderColor = 'rgba(192,132,252,0.35)'
   } else if (isRookChoosing) {
     statusIcon = '🏹'; statusLine = 'Robin Rook — Move or Shoot?'
