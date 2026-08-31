@@ -334,6 +334,8 @@ export default function App() {
         onSignOut={() => auth.signOut()}
         onCollection={() => setScreen('collection')}
         onTestPowers={handleTestPowers}
+        coins={coins}
+        onShop={() => setScreen('shop')}
       />
     )
   }
@@ -351,12 +353,13 @@ export default function App() {
   }
 
   if (screen === 'shop') {
+    const shopOrigin: AppScreen = campaignOpponent !== null ? 'campaign' : 'mode'
     return (
       <ShopScreen
         coins={coins}
         ownedCardIds={ownedCardIds}
         onBuyPack={handleBuyPack}
-        onBack={() => setScreen('campaign')}
+        onBack={() => setScreen(shopOrigin)}
       />
     )
   }

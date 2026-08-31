@@ -7,17 +7,55 @@ interface Props {
   userEmail?: string | null
   onCollection?: () => void
   onTestPowers?: () => void
+  coins?: number
+  onShop?: () => void
 }
 
 const D = 'var(--font-display)'
 const B = 'var(--font-body)'
 const GOLD = 'var(--gold)'
 
-export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers }: Props) {
+export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers, coins, onShop }: Props) {
   return (
     <div
       className="screen-bg min-h-screen flex flex-col items-center justify-center py-12 px-4"
     >
+      {/* Coins + Shop badge */}
+      {(coins !== undefined || onShop) && (
+        <div style={{ position: 'absolute', top: '16px', left: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {coins !== undefined && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              background: 'rgba(201,162,39,0.08)',
+              border: '1px solid rgba(201,162,39,0.25)',
+              borderRadius: '20px', padding: '5px 12px',
+            }}>
+              <span style={{ fontSize: '13px', lineHeight: 1 }}>🪙</span>
+              <span style={{ fontFamily: D, fontSize: '13px', fontWeight: 700, color: GOLD }}>
+                {coins.toLocaleString()}
+              </span>
+            </div>
+          )}
+          {onShop && (
+            <button
+              onClick={onShop}
+              style={{
+                fontFamily: B, fontSize: '11px', fontWeight: 700,
+                color: 'var(--gold)', letterSpacing: '0.06em',
+                background: 'rgba(201,162,39,0.08)',
+                border: '1px solid rgba(201,162,39,0.3)',
+                borderRadius: '8px', padding: '5px 12px',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,162,39,0.15)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,162,39,0.08)' }}
+            >
+              🛍 Shop
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Auth badge */}
       <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isSignedIn ? (
