@@ -654,8 +654,13 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       setValidTargets(applyImmunityFilter(getUnipopTargets(chess, state), piece.color))
       setUnipopPathCaptures([])
     } else if (hasRobinRook && piece.type === 'r') {
-      setRookChoiceSquare(square)
-      setValidTargets([])
+      const shootTargets = hasSpaceRobinRook ? getAllDirShootTargets(chess, square) : getRookShootTargets(chess, square)
+      if (shootTargets.length > 0) {
+        setRookChoiceSquare(square)
+        setValidTargets([])
+      } else {
+        setValidTargets(getPseudoLegalTargets(chess, square))
+      }
     } else if (hasPirateQueen && piece.type === 'q') {
       setValidTargets(applyImmunityFilter(getPirateQueenTargets(chess, square), piece.color))
     } else if (hasPuzzlePete && piece.type === 'b') {
