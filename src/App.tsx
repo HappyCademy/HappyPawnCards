@@ -84,6 +84,8 @@ export default function App() {
   })
 
   const [finaleSceneIdx, setFinaleSceneIdx] = useState(0)
+  const [showSpecialPieces, setShowSpecialPieces] = useState(false)
+  const [focusedSpecialCard, setFocusedSpecialCard] = useState<CardVariant | null>(null)
 
   const coinsAwardedRef = useRef(false)
 
@@ -563,10 +565,18 @@ export default function App() {
               isSpaceHappyPawnPlaceMode={isSpaceHappyPawnPlaceMode}
               legendaryHappyPawnPromoteSquare={legendaryHappyPawnPromoteSquare}
               onLegendaryHappyPawnPromote={onLegendaryHappyPawnPromote}
+              showSpecialPieces={showSpecialPieces}
+              onSpecialPieceClick={setFocusedSpecialCard}
             />
           </div>
           <div className="w-full lg:w-64 flex-shrink-0">
-            <GameInfo state={state} actions={actions} />
+            <GameInfo
+              state={state}
+              actions={actions}
+              focusedSpecialCard={focusedSpecialCard}
+              showSpecialPieces={showSpecialPieces}
+              onToggleSpecialPieces={() => setShowSpecialPieces(v => !v)}
+            />
           </div>
         </div>
 

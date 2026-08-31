@@ -42,6 +42,8 @@ interface Props {
   isSpaceHappyPawnPlaceMode?: boolean
   legendaryHappyPawnPromoteSquare?: ChessSquare | null
   onLegendaryHappyPawnPromote?: (piece: PieceSymbol) => void
+  showSpecialPieces?: boolean
+  onSpecialPieceClick?: (card: CardVariant | null) => void
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -58,7 +60,25 @@ export default function Board({
   isSpaceHappyPawnPlaceMode = false,
   legendaryHappyPawnPromoteSquare = null,
   onLegendaryHappyPawnPromote,
+  showSpecialPieces = false,
+  onSpecialPieceClick,
 }: Props) {
+  function buildPieceCardMap(cards: CardVariant[]): Partial<Record<PieceSymbol, CardVariant>> {
+    const map: Partial<Record<PieceSymbol, CardVariant>> = {}
+    for (const card of cards) {
+      const power = CARD_POWERS[card.characterId]
+      if (!power) continue
+      if (card.characterId === 'general-gambit') { map['p'] = card; continue }
+      if (!power.pieceSymbol) continue
+      const isActive = power.implemented
+        || (card.rarity === 'legendary' && power.implementedLegendary)
+        || (card.rarity === 'space' && power.implementedSpace)
+      if (!isActive) continue
+      map[power.pieceSymbol] = card
+    }
+    return map
+  }
+
   function buildPieceImageMap(cards: CardVariant[]): Partial<Record<PieceSymbol, string>> {
     const map: Partial<Record<PieceSymbol, string>> = {}
     for (const card of cards) {
@@ -107,6 +127,8 @@ export default function Board({
   }
   const whitePieceImageMap = buildPieceImageMap(playerCards)
   const blackPieceImageMap = buildPieceImageMap(aiCards)
+  const whitePieceCardMap = buildPieceCardMap(playerCards)
+  const blackPieceCardMap = buildPieceCardMap(aiCards)
 
   const hasUnipop = playerCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
   const isUnipopBuildingPath = unipopState !== null && unipopState.destination !== null
@@ -144,11 +166,14 @@ export default function Board({
     if (!piece) {
       // Empty square — call immediately, no drag
       onSquareClick(sq)
+      onSpecialPieceClick?.(null)
       return
     }
 
     const p = piece
     const cardImg = p.color === 'w' ? whitePieceImageMap[p.type] : blackPieceImageMap[p.type]
+    const specialCard = p.color === 'w' ? whitePieceCardMap[p.type] : blackPieceCardMap[p.type]
+    onSpecialPieceClick?.(specialCard ?? null)
     pendingRef.current = { sq, startX: e.clientX, startY: e.clientY }
     draggingRef.current = false
 
@@ -255,6 +280,9 @@ export default function Board({
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined
+            const specialPieceColor = cardImage
+              ? (piece!.color as 'w' | 'b')
+              : undefined
 
             return (
               <SquareCell
@@ -283,6 +311,8 @@ export default function Board({
                 rank={colIdx === 0 ? rank : undefined}
                 file={rowIdx === 7 ? file : undefined}
                 cardImage={cardImage}
+                showSpecial={showSpecialPieces}
+                specialPieceColor={specialPieceColor}
               />
             )
           })
@@ -310,7 +340,7 @@ export default function Board({
             opacity: 0.9,
           }}
         >
-          <Piece type={dragging.type} color={dragging.color} cardImage={dragging.cardImage} />
+          <Piece type={dragging.type} color={dragging.color} cardImage={dragging.cardImage} showSpecial={showSpecialPieces} />
         </div>
       )}
 

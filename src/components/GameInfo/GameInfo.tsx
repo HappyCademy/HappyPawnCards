@@ -1,17 +1,22 @@
 import { useState, useEffect, useRef } from 'react'
 import type { GameState, GameActions } from '../../hooks/useChessGame'
+import type { CardVariant } from '../../data/cards'
+import { CARD_POWERS, RARITIES } from '../../data/powers'
 import MoveHistory from './MoveHistory'
 import PieceSetPicker from './PieceSetPicker'
 
 interface Props {
   state: GameState
   actions: GameActions
+  focusedSpecialCard?: CardVariant | null
+  showSpecialPieces?: boolean
+  onToggleSpecialPieces?: () => void
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-export default function GameInfo({ state, actions }: Props) {
+export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces }: Props) {
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
@@ -332,6 +337,76 @@ export default function GameInfo({ state, actions }: Props) {
           ♛ Menu
         </button>
       </div>
+
+      {/* ── Focused special piece card ─────────────────────────────────────── */}
+      {focusedSpecialCard && (() => {
+        const power = CARD_POWERS[focusedSpecialCard.characterId]
+        const isSpace = focusedSpecialCard.rarity === 'space'
+        const isLegendary = focusedSpecialCard.rarity === 'legendary'
+        const upgradeId = power?.legendaryUpgrade
+        const up = upgradeId ? CARD_POWERS[upgradeId] : null
+        const label = isSpace && power?.spacePowerLabel ? power.spacePowerLabel
+          : isLegendary && up ? up.powerLabel
+          : isLegendary && power?.legendaryPowerLabel ? power.legendaryPowerLabel
+          : power?.powerLabel
+        const description = isSpace && power?.spacePowerDescription ? power.spacePowerDescription
+          : isLegendary && up ? up.powerDescription
+          : isLegendary && power?.legendaryPowerDescription ? power.legendaryPowerDescription
+          : power?.powerDescription
+        const rarityMeta = RARITIES.find(r => r.key === focusedSpecialCard.rarity)
+        return (
+          <div style={{
+            background: 'rgba(13,10,26,0.85)',
+            border: `1px solid ${rarityMeta?.color ?? 'rgba(201,162,39,0.2)'}44`,
+            borderRadius: '14px',
+            padding: '10px',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'flex-start',
+          }}>
+            <img
+              src={focusedSpecialCard.image}
+              alt={focusedSpecialCard.name}
+              style={{ width: '44px', borderRadius: '6px', flexShrink: 0, boxShadow: `0 0 0 1.5px ${rarityMeta?.color ?? 'rgba(201,162,39,0.4)'}` }}
+            />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{ margin: 0, fontFamily: D, fontSize: '11px', fontWeight: 600, color: 'var(--ivory)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {focusedSpecialCard.name}
+              </p>
+              {label && (
+                <p style={{ margin: '2px 0 0', fontFamily: D, fontSize: '10px', color: 'var(--gold)', letterSpacing: '0.04em' }}>
+                  {label}
+                </p>
+              )}
+              {description && (
+                <p style={{ margin: '3px 0 0', fontFamily: B, fontSize: '10px', color: 'var(--ivory-dim)', lineHeight: 1.45 }}>
+                  {description}
+                </p>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── Show piece art toggle ───────────────────────────────────────────── */}
+      {onToggleSpecialPieces && (
+        <button
+          onClick={onToggleSpecialPieces}
+          style={{
+            width: '100%', padding: '8px', borderRadius: '12px',
+            border: `1px solid ${showSpecialPieces ? 'rgba(192,132,252,0.4)' : 'rgba(201,162,39,0.12)'}`,
+            background: showSpecialPieces ? 'rgba(192,132,252,0.08)' : 'transparent',
+            color: showSpecialPieces ? '#c084fc' : 'rgba(138,117,96,0.6)',
+            fontFamily: B, fontWeight: 700, fontSize: '11px', cursor: 'pointer',
+            letterSpacing: '0.04em', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { if (!showSpecialPieces) (e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-dim)' }}
+          onMouseLeave={e => { if (!showSpecialPieces) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.6)' }}
+        >
+          {showSpecialPieces ? '★ Hide piece art' : '☆ Show piece art'}
+        </button>
+      )}
 
       {/* ── Piece style ────────────────────────────────────────────────────── */}
       <button

@@ -27,6 +27,8 @@ interface Props {
   rank?: string
   file?: string
   cardImage?: string
+  showSpecial?: boolean
+  specialPieceColor?: 'w' | 'b'
 }
 
 export default function Square({
@@ -37,7 +39,7 @@ export default function Square({
   isSpaceChessbeardFrozen = false, isSpaceHappyPawnTarget = false,
   isDraggingFrom = false, isDragOver = false,
   isUnipopStepTarget = false, isRespawning = false,
-  showCoords, rank, file, cardImage,
+  showCoords, rank, file, cardImage, showSpecial = false, specialPieceColor,
 }: Props) {
   let bg = isLight ? '#f0d9b5' : '#b58863'
 
@@ -147,6 +149,20 @@ export default function Square({
         />
       )}
 
+      {/* Special piece pip — top-right corner */}
+      {specialPieceColor && !showSpecial && (
+        <div className="absolute pointer-events-none" style={{
+          top: '3px', right: '3px',
+          width: '7px', height: '7px',
+          borderRadius: '50%',
+          background: specialPieceColor === 'w' ? 'rgba(251,191,36,0.95)' : 'rgba(192,132,252,0.95)',
+          boxShadow: specialPieceColor === 'w'
+            ? '0 0 4px rgba(251,191,36,0.7)'
+            : '0 0 4px rgba(192,132,252,0.7)',
+          zIndex: 5,
+        }} />
+      )}
+
       {piece && (
         <div style={{
           opacity: isDraggingFrom ? 0.25 : 1,
@@ -156,6 +172,7 @@ export default function Square({
             type={piece.type}
             color={piece.color}
             cardImage={cardImage}
+            showSpecial={showSpecial}
           />
         </div>
       )}
