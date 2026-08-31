@@ -10,6 +10,7 @@ export interface CardPowerDef {
   blackKingCapture?: boolean
   happyPawnPush?: boolean
   chessbeardSacrifice?: boolean
+  kingsGuardBlock?: boolean
   crystalQueenImmune?: boolean
   implemented: boolean
   implementedLegendary?: boolean
@@ -81,9 +82,9 @@ export const CARD_POWERS: Record<string, CardPowerDef> = {
     legendaryPowerDescription: 'At the end of every move, the Black King automatically destroys all pieces on the 8 squares adjacent to him — friend or foe. Rule through fear!',
   },
   'kings-guard': {
-    pieceSymbol: 'p', implemented: false,
-    powerLabel: '🛡 Coming Soon',
-    powerDescription: "The King's Guard power is still being designed. Check back soon!",
+    pieceSymbol: 'k', kingsGuardBlock: true, implemented: true,
+    powerLabel: '🛡 Pawn Shield',
+    powerDescription: "When your king is in check, any of your pawns can teleport to any square that blocks the check — friend rushes to protect the king!",
     legendaryPowerLabel: '🔥 Coming Soon',
     legendaryPowerDescription: "The King's Guard legendary power is still being designed. Check back soon!",
   },

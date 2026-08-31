@@ -19,6 +19,7 @@ import { getHappyPawnTargets, applyHappyPawnPush, getSpaceHappyPawnPlacementTarg
 import {
   getChessbeardSelectablePieces, getChessbeardTargets, applyChessbeardSacrifice,
 } from '../engine/chessbeard'
+import { getKingsGuardTeleportSquares, applyKingsGuardTeleport } from '../engine/kingsguard'
 import {
   playMove, playCapture, playCheck, playPower, playWin, playLose, playTimerTick,
 } from '../utils/sounds'
@@ -250,6 +251,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const hasPirateQueen   = currentCards.some(c => CARD_POWERS[c.characterId]?.pirateQueenBounce)
   const hasBlackKing     = currentCards.some(c => CARD_POWERS[c.characterId]?.blackKingCapture)
   const hasHappyPawn     = currentCards.some(c => CARD_POWERS[c.characterId]?.happyPawnPush)
+  const hasKingsGuard    = currentCards.some(c => CARD_POWERS[c.characterId]?.kingsGuardBlock)
   const hasChessbeard    = currentCards.some(c => CARD_POWERS[c.characterId]?.chessbeardSacrifice)
   const hasSpaceChessbeard = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.chessbeardSacrifice)
   const hasSpaceHappyPawn  = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.happyPawnPush)
@@ -597,7 +599,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
           return
         }
         let moved: Chess
-        if (hasHappyPawn && chess.get(selectedSquare)?.type === 'p') {
+        if (hasKingsGuard && chess.get(selectedSquare)?.type === 'p' && chess.isCheck()) {
+          moved = applyKingsGuardTeleport(chess, selectedSquare, square)
+        } else if (hasHappyPawn && chess.get(selectedSquare)?.type === 'p') {
           moved = applyHappyPawnPush(chess, selectedSquare, square)
         } else {
           moved = applyPseudoLegalMove(chess, selectedSquare, square)
@@ -641,7 +645,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
       legendaryHappyPawnPromoteSquare,
       hasUnipop, hasSpaceUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
-      hasBlackKing, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
+      hasBlackKing, hasKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
       hasLegendaryHappyPawn, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
@@ -667,6 +671,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       setValidTargets(applyImmunityFilter(getPuzzlePeteBishopTargets(chess, square), piece.color))
     } else if (hasBlackKing && piece.type === 'k') {
       setValidTargets(applyImmunityFilter(getBlackKingTargets(chess, square), piece.color))
+    } else if (hasKingsGuard && piece.type === 'p' && chess.isCheck()) {
+      setValidTargets(applyImmunityFilter(getKingsGuardTeleportSquares(chess, square), piece.color))
     } else if (hasHappyPawn && piece.type === 'p') {
       setValidTargets(applyImmunityFilter(getHappyPawnTargets(chess, square), piece.color))
     } else {
