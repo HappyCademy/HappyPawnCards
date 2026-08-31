@@ -17,11 +17,12 @@ interface Props {
   isChessbeardTarget: boolean
   isCrystalQueenVulnerable?: boolean
   isCrystalQueenProtected?: boolean
+  isSpaceChessbeardFrozen?: boolean
+  isSpaceHappyPawnTarget?: boolean
   isDraggingFrom?: boolean
   isDragOver?: boolean
   isUnipopStepTarget?: boolean
   isRespawning?: boolean
-  onClick: (square: ChessSquare) => void
   showCoords: boolean
   rank?: string
   file?: string
@@ -33,9 +34,10 @@ export default function Square({
   isLastMove, isKingInCheck, isUnipopPath, isUnipopCapture, isShootTarget,
   isChessbeardSelectable, isChessbeardTarget,
   isCrystalQueenVulnerable = false, isCrystalQueenProtected = false,
+  isSpaceChessbeardFrozen = false, isSpaceHappyPawnTarget = false,
   isDraggingFrom = false, isDragOver = false,
   isUnipopStepTarget = false, isRespawning = false,
-  onClick, showCoords, rank, file, cardImage,
+  showCoords, rank, file, cardImage,
 }: Props) {
   let bg = isLight ? '#f0d9b5' : '#b58863'
 
@@ -47,7 +49,6 @@ export default function Square({
   return (
     <div
       data-square={square}
-      onClick={() => onClick(square)}
       className="relative flex items-center justify-center cursor-pointer overflow-hidden"
       style={{ backgroundColor: bg }}
     >
@@ -121,6 +122,18 @@ export default function Square({
       {isDragOver && (
         <div className="absolute inset-0 pointer-events-none"
           style={{ boxShadow: 'inset 0 0 0 3px rgba(255,255,255,0.75)' }} />
+      )}
+
+      {/* Space Chessbeard: this piece is frozen for opponent */}
+      {isSpaceChessbeardFrozen && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundColor: 'rgba(99,102,241,0.22)', boxShadow: 'inset 0 0 0 3px rgba(129,140,248,0.9)' }} />
+      )}
+
+      {/* Space Happy Pawn: empty placement target */}
+      {isSpaceHappyPawnTarget && !piece && (
+        <div className="absolute rounded-full"
+          style={{ width: '33%', height: '33%', backgroundColor: 'rgba(74,222,128,0.5)' }} />
       )}
 
       {/* Respawn dirt effect */}

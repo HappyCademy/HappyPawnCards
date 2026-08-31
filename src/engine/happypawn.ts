@@ -121,6 +121,35 @@ export function applyHappyPawnPush(chess: Chess, from: Square, to: Square): Ches
   catch { return chess }
 }
 
+// ── Space Happy Pawn: place a pawn from reserve ────────────────────────────────
+
+export function getSpaceHappyPawnPlacementTargets(chess: Chess): Square[] {
+  const color = chess.turn()
+  const targets: Square[] = []
+  const ranks = color === 'w' ? [0, 1, 2, 3] : [4, 5, 6, 7]
+  for (const r of ranks) {
+    for (let f = 0; f < 8; f++) {
+      const sq = (String.fromCharCode(97 + f) + (r + 1)) as Square
+      if (!chess.get(sq)) targets.push(sq)
+    }
+  }
+  return targets
+}
+
+export function applySpaceHappyPawnPlace(chess: Chess, targetSq: Square): Chess {
+  const color = chess.turn()
+  const pawnChar = color === 'w' ? 'P' : 'p'
+  let fen = chess.fen()
+  fen = setSquare(fen, targetSq, pawnChar)
+  const parts = fen.split(' ')
+  parts[1] = color === 'w' ? 'b' : 'w'
+  parts[3] = '-'
+  parts[4] = '0'
+  if (color === 'b') parts[5] = String(parseInt(parts[5]) + 1)
+  fen = parts.join(' ')
+  try { return new Chess(fen, { skipValidation: true }) } catch { return chess }
+}
+
 function setSquare(fen: string, square: Square, piece: string | null): string {
   const [pos, ...rest] = fen.split(' ')
   const f = square.charCodeAt(0) - 97

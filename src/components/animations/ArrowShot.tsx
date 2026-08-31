@@ -36,7 +36,7 @@ export default function ArrowShot({ from, to }: Props) {
       }}
     >
       <image
-        href="/images/pieces/arrow.png"
+        href="/images/arrow.png"
         x={cx - dist / 2}
         y={cy - h / 2}
         width={dist}

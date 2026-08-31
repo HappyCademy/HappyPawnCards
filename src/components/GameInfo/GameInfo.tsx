@@ -16,6 +16,7 @@ export default function GameInfo({ state, actions }: Props) {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
     isChessbeardSelectMode, chessbeardSacrificeSquare, chessbeardAvailable,
+    isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceHappyPawnAvailable,
     timeLeft, timedOut, resignedBy, gameMode,
   } = state
 
@@ -26,6 +27,7 @@ export default function GameInfo({ state, actions }: Props) {
   const isRookChoosing = rookChoiceSquare !== null
   const isBlackKingBonus = blackKingBonusSquare !== null
   const isChessbeardActive = isChessbeardSelectMode || chessbeardSacrificeSquare !== null
+  const isSpaceActive = isSpaceChessbeardFreezeMode || isSpaceHappyPawnPlaceMode
   const isVsPlayer = gameMode === 'vsPlayer'
 
   const [resignPending, setResignPending] = useState(false)
@@ -88,6 +90,12 @@ export default function GameInfo({ state, actions }: Props) {
     }
     statusColor = 'var(--gold-bright)'
     bannerBorderColor = 'rgba(201,162,39,0.4)'
+  } else if (isSpaceChessbeardFreezeMode) {
+    statusIcon = '🔒'; statusLine = 'Space Chessbeard — pick a piece to freeze'
+    statusColor = '#818cf8'; bannerBorderColor = 'rgba(129,140,248,0.35)'
+  } else if (isSpaceHappyPawnPlaceMode) {
+    statusIcon = '🚀'; statusLine = 'Happy Pawn — pick a square to place a pawn'
+    statusColor = '#4ade80'; bannerBorderColor = 'rgba(74,222,128,0.35)'
   } else if (isBlackKingBonus) {
     statusIcon = '♛'; statusLine = 'Black King — bonus move!'
     statusColor = '#fbbf24'; bannerBorderColor = 'rgba(251,191,36,0.35)'
@@ -127,6 +135,8 @@ export default function GameInfo({ state, actions }: Props) {
   }
 
   const hint = isGameOver ? ''
+    : isSpaceChessbeardFreezeMode ? 'Click an opponent piece to freeze it for their next turn'
+    : isSpaceHappyPawnPlaceMode ? 'Click a green square to place a pawn from your reserve'
     : isBlackKingBonus ? 'Move the king again, or skip below'
     : isChessbeardSelectMode ? 'Click one of your highlighted pieces'
     : chessbeardSacrificeSquare ? 'Click a red-highlighted enemy, or reselect'
@@ -281,7 +291,12 @@ export default function GameInfo({ state, actions }: Props) {
           ⚔ Sacrifice (Chessbeard)
         </GameBtn>
       )}
-      {isChessbeardActive && (
+      {spaceHappyPawnAvailable && !isGameOver && (
+        <GameBtn onClick={actions.onSpaceHappyPawnPlace} variant="space">
+          🚀 Place Pawn (Reserve)
+        </GameBtn>
+      )}
+      {(isChessbeardActive || isSpaceActive) && (
         <GameBtn onClick={actions.onUndo} variant="ghost">
           ✕ Cancel
         </GameBtn>
@@ -388,7 +403,7 @@ export default function GameInfo({ state, actions }: Props) {
 
 function GameBtn({ onClick, variant, children }: {
   onClick: () => void
-  variant: 'yellow' | 'red' | 'ghost'
+  variant: 'yellow' | 'red' | 'ghost' | 'space'
   children: React.ReactNode
 }) {
   const styles: Record<string, React.CSSProperties> = {
@@ -406,6 +421,11 @@ function GameBtn({ onClick, variant, children }: {
       background: 'rgba(13,10,26,0.6)',
       border: '1.5px solid rgba(255,255,255,0.1)',
       color: 'var(--ivory-dim)',
+    },
+    space: {
+      background: 'rgba(99,102,241,0.1)',
+      border: '1.5px solid rgba(129,140,248,0.4)',
+      color: '#818cf8',
     },
   }
 

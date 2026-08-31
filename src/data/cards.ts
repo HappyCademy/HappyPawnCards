@@ -34,14 +34,14 @@ const RARITY_SUFFIX: Record<Rarity, string> = {
   space:     '8space',
 }
 
-const RARITY_EXT: Record<Rarity, string> = {
-  basic:     'webp',
-  baby:      'webp',
-  fullart:   'webp',
-  foil:      'webp',
-  golden:    'webp',
-  legendary: 'webp',
-  space:     'png',
+const RARITY_FULLBODY: Record<Rarity, string> = {
+  basic:     'basic-fullbody',
+  baby:      'baby-fullbody',
+  fullart:   'fullart-fullbody',
+  foil:      'basic-fullbody',
+  golden:    'golden-fullbody',
+  legendary: 'legendary-fullbody',
+  space:     'space-fullbody',
 }
 
 const CHARACTERS: { id: string; name: string }[] = [
@@ -50,21 +50,23 @@ const CHARACTERS: { id: string; name: string }[] = [
   { id: 'black-king',     name: 'Black King'     },
   { id: 'general-gambit', name: 'General Gambit' },
   { id: 'kings-guard',    name: "King's Guard"   },
-  { id: 'crystal-queen',  name: 'Crystal Queen'  },
   { id: 'puzzle-pete',    name: 'Puzzle Pete'    },
+  { id: 'pirate-queen',   name: 'Pirate Queen'   },
+  { id: 'crystal-queen',  name: 'Crystal Queen'  },
   { id: 'unipop',         name: 'Unipop'         },
   { id: 'robin-rook',     name: 'Robin Rook'     },
-  { id: 'pirate-queen',   name: 'Pirate Queen'   },
 ]
 
 export const ALL_CARDS: CardVariant[] = CHARACTERS.flatMap(char =>
-  RARITIES.map(rarity => ({
-    id: `${char.id}_${RARITY_SUFFIX[rarity.key]}`,
-    characterId: char.id,
-    name: char.name,
-    rarity: rarity.key,
-    image: `/images/cards/${char.id}_${RARITY_SUFFIX[rarity.key]}.${RARITY_EXT[rarity.key]}`,
-  }))
+  RARITIES
+    .filter(rarity => char.id !== 'pirate-queen' || rarity.key === 'legendary')
+    .map(rarity => ({
+      id: `${char.id}_${RARITY_SUFFIX[rarity.key]}`,
+      characterId: char.id,
+      name: char.name,
+      rarity: rarity.key,
+      image: `/images/characters/${char.id}/${RARITY_FULLBODY[rarity.key]}.png`,
+    }))
 )
 
 export function getCardsByRarity(rarity: Rarity): CardVariant[] {
@@ -72,6 +74,10 @@ export function getCardsByRarity(rarity: Rarity): CardVariant[] {
 }
 
 export function pickRandomCards(count: number): CardVariant[] {
-  const shuffled = [...ALL_CARDS].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count)
+  const arr = [...ALL_CARDS]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr.slice(0, count)
 }

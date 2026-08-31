@@ -5,13 +5,15 @@ export const PIECE_VALUE: Record<PieceSymbol, number> = {
   p: 1, n: 3, b: 3, r: 5, q: 9, k: 100,
 }
 
-// All non-king pieces belonging to the current player (candidates for sacrifice).
-export function getChessbeardSelectablePieces(chess: Chess): Square[] {
+// Own non-king pieces that have at least one valid sacrifice target.
+export function getChessbeardSelectablePieces(chess: Chess, anyValue = false): Square[] {
   const color = chess.turn()
   const result: Square[] = []
   for (const row of chess.board()) {
     for (const p of row) {
-      if (p && p.color === color && p.type !== 'k') result.push(p.square)
+      if (p && p.color === color && p.type !== 'k') {
+        if (getChessbeardTargets(chess, p.square, anyValue).length > 0) result.push(p.square)
+      }
     }
   }
   return result

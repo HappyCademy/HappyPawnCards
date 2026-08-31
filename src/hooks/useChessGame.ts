@@ -15,7 +15,7 @@ import {
 import { getRookShootTargets, getAllDirShootTargets, applyRookShoot } from '../engine/robinrook'
 import { getPirateQueenTargets } from '../engine/piratequeen'
 import { getBlackKingTargets, applyBlackKingCapture, toggleTurn } from '../engine/blackking'
-import { getHappyPawnTargets, applyHappyPawnPush } from '../engine/happypawn'
+import { getHappyPawnTargets, applyHappyPawnPush, getSpaceHappyPawnPlacementTargets, applySpaceHappyPawnPlace } from '../engine/happypawn'
 import {
   getChessbeardSelectablePieces, getChessbeardTargets, applyChessbeardSacrifice,
 } from '../engine/chessbeard'
@@ -53,8 +53,13 @@ export interface GameState {
   isChessbeardSelectMode: boolean
   chessbeardSacrificeSquare: Square | null
   chessbeardAvailable: boolean
+  isSpaceHappyPawnPlaceMode: boolean
+  isSpaceChessbeardFreezeMode: boolean
+  spaceChessbeardFrozenSquare: Square | null
+  spaceHappyPawnAvailable: boolean
   crystalQueenVulnerable: boolean
   respawnedSquares: Square[]
+  legendaryHappyPawnPromoteSquare: Square | null
   timeLeft: number
   timedOut: Color | null
   resignedBy: Color | null
@@ -66,6 +71,8 @@ export interface GameActions {
   onRookChoice: (mode: 'move' | 'shoot') => void
   onSkipBlackKingBonus: () => void
   onChessbeardActivate: () => void
+  onSpaceHappyPawnPlace: () => void
+  onLegendaryHappyPawnPromote: (piece: PieceSymbol) => void
   onNewGame: () => void
   onUndo: () => void
   onResign: () => void
@@ -76,6 +83,7 @@ export interface GameActions {
 function getStatus(chess: Chess): GameStatus {
   if (!isKingOnBoard(chess, 'w')) return 'black-wins'
   if (!isKingOnBoard(chess, 'b')) return 'white-wins'
+  if (chess.isStalemate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
   if (chess.isDraw()) return 'draw'
   return 'playing'
 }
@@ -90,23 +98,37 @@ function buildBoard(chess: Chess): (BoardPiece | null)[][] {
   )
 }
 
+function countPawnsInReserve(chess: Chess, color: Color): number {
+  let onBoard = 0
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (p?.type === 'p' && p.color === color) onBoard++
+    }
+  }
+  return Math.max(0, 8 - onBoard)
+}
+
 /** Files where pawns of `color` were lost between two board states. */
 function capturedPawnFiles(before: Chess, after: Chess, color: Color): string[] {
   const count = (chess: Chess) => {
-    const map = new Map<string, number>()
+    let total = 0
+    const byFile = new Map<string, number>()
     for (const row of chess.board()) {
       for (const p of row) {
         if (p?.type === 'p' && p.color === color) {
-          map.set(p.square[0], (map.get(p.square[0]) ?? 0) + 1)
+          total++
+          byFile.set(p.square[0], (byFile.get(p.square[0]) ?? 0) + 1)
         }
       }
     }
-    return map
+    return { total, byFile }
   }
   const b = count(before), a = count(after)
+  // If total pawn count didn't decrease, no pawn was captured (it just moved files)
+  if (a.total >= b.total) return []
   const lost: string[] = []
-  for (const [file, n] of b) {
-    if ((a.get(file) ?? 0) < n) lost.push(file)
+  for (const [file, n] of b.byFile) {
+    if ((a.byFile.get(file) ?? 0) < n) lost.push(file)
   }
   return lost
 }
@@ -143,6 +165,31 @@ function respawnPawn(chess: Chess, file: string, color: Color): Chess {
   try { return new Chess(newFen, { skipValidation: true }) } catch { return chess }
 }
 
+function replacePieceAt(chess: Chess, sq: Square, piece: PieceSymbol): Chess {
+  const existing = chess.get(sq)
+  if (!existing) return chess
+  const newChar = existing.color === 'w' ? piece.toUpperCase() : piece.toLowerCase()
+  const fi = sq.charCodeAt(0) - 97
+  const fenRi = 8 - parseInt(sq[1])
+  const parts = chess.fen().split(' ')
+  const rows = parts[0].split('/')
+  let exp = ''
+  for (const ch of rows[fenRi]) {
+    if (ch >= '1' && ch <= '8') exp += '1'.repeat(parseInt(ch))
+    else exp += ch
+  }
+  exp = exp.slice(0, fi) + newChar + exp.slice(fi + 1)
+  let comp = '', blanks = 0
+  for (const ch of exp) {
+    if (ch === '1') blanks++
+    else { if (blanks) { comp += blanks; blanks = 0 } comp += ch }
+  }
+  if (blanks) comp += blanks
+  rows[fenRi] = comp
+  const newFen = [rows.join('/'), ...parts.slice(1)].join(' ')
+  try { return new Chess(newFen, { skipValidation: true }) } catch { return chess }
+}
+
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export type GameMode = 'vsComputer' | 'vsPlayer'
@@ -175,6 +222,14 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const [timedOut, setTimedOut] = useState<Color | null>(null)
   const [resignedBy, setResignedBy] = useState<Color | null>(null)
   const [gameActive, setGameActive] = useState(false)
+  const [isSpaceHappyPawnPlaceMode, setIsSpaceHappyPawnPlaceMode] = useState(false)
+  const [isSpaceChessbeardFreezeMode, setIsSpaceChessbeardFreezeMode] = useState(false)
+  const [spaceChessbeardFrozenSquare, setSpaceChessbeardFrozenSquare] = useState<Square | null>(null)
+  const [freezeSetByColor, setFreezeSetByColor] = useState<Color | null>(null)
+  const [legendaryHappyPawnPromoteSquare, setLegendaryHappyPawnPromoteSquare] = useState<Square | null>(null)
+  const promotePendingRef = useRef<{ before: Chess; from: Square } | null>(null)
+  const fenHistoryRef = useRef<Array<{ fen: string; moveCount: number }>>([])
+  const moveHistoryRef = useRef<string[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevPieceCountRef = useRef(32)
   const prevStatusRef = useRef<GameStatus>('playing')
@@ -197,6 +252,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const hasHappyPawn     = currentCards.some(c => CARD_POWERS[c.characterId]?.happyPawnPush)
   const hasChessbeard    = currentCards.some(c => CARD_POWERS[c.characterId]?.chessbeardSacrifice)
   const hasSpaceChessbeard = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.chessbeardSacrifice)
+  const hasSpaceHappyPawn  = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.happyPawnPush)
+  const hasLegendaryHappyPawn = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.happyPawnPush)
   const hasPlayerGambit  = playerCards.some(c => CARD_POWERS[c.characterId]?.generalGambitRespawn)
   const hasAIGambit      = aiCards.some(c => CARD_POWERS[c.characterId]?.generalGambitRespawn)
 
@@ -265,6 +322,49 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setBlackKingBonusSquare(null)
     setIsChessbeardSelectMode(false)
     setChessbeardSacrificeSquare(null)
+    setIsSpaceHappyPawnPlaceMode(false)
+    setIsSpaceChessbeardFreezeMode(false)
+  }
+
+  function formatMoveNotation(before: Chess, from: Square, to: Square): string {
+    const piece = before.get(from)
+    const captured = before.get(to)
+    const sym = piece && piece.type !== 'p' ? piece.type.toUpperCase() : ''
+    return sym + from + (captured ? 'x' : '-') + to
+  }
+
+  function completeTurn(before: Chess, after: Chess, fromSq: Square, toSq: Square) {
+    fenHistoryRef.current.push({ fen: before.fen(), moveCount: moveHistoryRef.current.length })
+    moveHistoryRef.current.push(formatMoveNotation(before, fromSq, toSq))
+    const withR = withRespawns(before, after)
+    chessRef.current = withR
+    setLastMove({ from: fromSq, to: toSq })
+    if (hasSpaceChessbeard) {
+      const opponentColor = withR.turn()
+      const targets: Square[] = []
+      for (const row of withR.board()) {
+        for (const p of row) {
+          if (p && p.color === opponentColor) targets.push(p.square as Square)
+        }
+      }
+      if (targets.length > 0) {
+        setIsSpaceChessbeardFreezeMode(true)
+        setSelectedSquare(null)
+        setValidTargets(targets)
+        setUnipopState(null)
+        setUnipopBonusSquare(null)
+        setUnipopPathCaptures([])
+        setRookChoiceSquare(null)
+        setIsRookShootMode(false)
+        setBlackKingBonusSquare(null)
+        setIsChessbeardSelectMode(false)
+        setChessbeardSacrificeSquare(null)
+        setIsSpaceHappyPawnPlaceMode(false)
+        return
+      }
+    }
+    clearSelection()
+    bump()
   }
 
   // ESC key cancels any active selection or special mode
@@ -307,9 +407,36 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }, [chess, rookChoiceSquare, hasSpaceRobinRook])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSquareClick = useCallback((square: Square) => {
+    if (getStatus(chess) !== 'playing' || resignedBy !== null) return
+
+    // ── Legendary Happy Pawn: waiting for promotion choice ────────────────────
+    if (legendaryHappyPawnPromoteSquare) return
+
+    // ── Space Chessbeard: picking freeze target ──────────────────────────────
+    if (isSpaceChessbeardFreezeMode) {
+      if (validTargets.includes(square)) {
+        setSpaceChessbeardFrozenSquare(square)
+        setFreezeSetByColor(chess.turn() === 'w' ? 'b' : 'w')
+        setIsSpaceChessbeardFreezeMode(false)
+        setSelectedSquare(null)
+        setValidTargets([])
+        bump()
+      }
+      return
+    }
+
+    // ── Space Happy Pawn: place a pawn from reserve ──────────────────────────
+    if (isSpaceHappyPawnPlaceMode) {
+      if (validTargets.includes(square)) {
+        const before = chess
+        const placed = applySpaceHappyPawnPlace(chess, square)
+        completeTurn(before, placed, square, square)
+      }
+      return
+    }
+
     // In vsComputer mode black's clicks are blocked (AI handles black's turn)
     if (gameMode === 'vsComputer' && chess.turn() === 'b') return
-    if (getStatus(chess) !== 'playing' || resignedBy !== null) return
 
     const piece = chess.get(square)
     const isMyPiece = piece && piece.color === chess.turn()
@@ -325,13 +452,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       if (validTargets.includes(square)) {
         const before = chess
         const shot = applyRookShoot(chess, square)
-        const after = withRespawns(before, shot)
-        chessRef.current = after
-        setLastMove({ from: selectedSquare, to: square })
         triggerArrowShot(selectedSquare, square)
         setIsRookShootMode(false)
-        clearSelection()
-        bump()
+        completeTurn(before, shot, selectedSquare, square)
         return
       }
       // Any click that isn't a valid shoot target cancels shoot mode (never falls through)
@@ -357,12 +480,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
           const pathSquares = getPathSquares(unipopState.knightSquare, unipopState.destination, square)
           const before = chess
           const moved = applyUnipopMove(chess, unipopState.knightSquare, pathSquares)
-          const after = withRespawns(before, moved)
-          chessRef.current = after
-          setLastMove({ from: unipopState.knightSquare, to: unipopState.destination })
           triggerFireTrail(pathSquares)
-          clearSelection()
-          bump()
+          completeTurn(before, moved, unipopState.knightSquare, unipopState.destination)
           return
         }
         clearSelection(); return
@@ -371,35 +490,37 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
     // ── Chessbeard: selecting piece to sacrifice ─────────────────────────
     if (isChessbeardSelectMode) {
-      if (isMyPiece && piece.type !== 'k' && validTargets.includes(square)) {
+      if (validTargets.includes(square)) {
+        // Own eligible piece — advance to target-picking phase
         const targets = getChessbeardTargets(chess, square, hasSpaceChessbeard)
         setChessbeardSacrificeSquare(square)
         setIsChessbeardSelectMode(false)
         setSelectedSquare(square)
         setValidTargets(targets)
         // don't bump — turn hasn't changed
-      } else {
+      } else if (!isMyPiece) {
+        // Clicked enemy piece or empty square — cancel
         clearSelection()
       }
+      // Own piece not eligible (e.g. pawn): silently ignore, keep mode active
       return
     }
 
     // ── Chessbeard: picking opponent piece to destroy ─────────────────────
     if (chessbeardSacrificeSquare) {
       if (validTargets.includes(square)) {
-        chessRef.current = applyChessbeardSacrifice(chess, chessbeardSacrificeSquare, square)
-        setLastMove({ from: chessbeardSacrificeSquare, to: square })
-        clearSelection()
-        bump()
+        const before = chess
+        const sacrificed = applyChessbeardSacrifice(chess, chessbeardSacrificeSquare, square)
+        completeTurn(before, sacrificed, chessbeardSacrificeSquare, square)
         return
       }
-      if (square === chessbeardSacrificeSquare) {
-        // Re-enter select mode to pick a different piece
+      if (square === chessbeardSacrificeSquare || (isMyPiece && piece && piece.type !== 'k')) {
+        // Re-click sacrifice piece OR clicked a different own piece — re-enter select
         setChessbeardSacrificeSquare(null)
         setIsChessbeardSelectMode(true)
         setSelectedSquare(null)
-        setValidTargets(getChessbeardSelectablePieces(chess))
-        return  // validTargets shows selectable pieces, no change to hasSpaceChessbeard here
+        setValidTargets(getChessbeardSelectablePieces(chess, hasSpaceChessbeard))
+        return
       }
       clearSelection()
       return
@@ -412,10 +533,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       if (validTargets.includes(square)) {
         const before = chess
         const moved = applyPseudoLegalMove(chess, unipopBonusSquare, square)
-        chessRef.current = withRespawns(before, moved)
-        setLastMove({ from: unipopBonusSquare, to: square })
-        clearSelection()
-        bump()
+        completeTurn(before, moved, unipopBonusSquare, square)
         return
       }
       // Skip / cancel — end turn properly
@@ -443,10 +561,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
         }
         // Normal move or enemy capture → end turn
         const moved = applyPseudoLegalMove(chess, blackKingBonusSquare, square)
-        chessRef.current = withRespawns(before, moved)
-        setLastMove({ from: blackKingBonusSquare, to: square })
-        clearSelection()
-        bump()
+        completeTurn(before, moved, blackKingBonusSquare, square)
         return
       }
       return
@@ -494,24 +609,40 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
             setCrystalQueenVulnerable(true)
           }
         }
-        chessRef.current = withRespawns(before, moved)
-        setLastMove({ from: selectedSquare, to: square })
-        clearSelection()
-        bump()
+        // Legendary Happy Pawn: pawn reaching rank 6 triggers early promotion
+        const promoteRank = chess.turn() === 'w' ? '6' : '3'
+        if (hasLegendaryHappyPawn && chess.get(selectedSquare)?.type === 'p' && square[1] === promoteRank) {
+          const withR = withRespawns(before, moved)
+          chessRef.current = withR
+          promotePendingRef.current = { before, from: selectedSquare }
+          setLegendaryHappyPawnPromoteSquare(square)
+          setLastMove({ from: selectedSquare, to: square })
+          clearSelection()
+          return  // don't bump — AI must not trigger until promotion is resolved
+        }
+        completeTurn(before, moved, selectedSquare, square)
         return
       }
-      if (isMyPiece) { selectPiece(square, piece); return }
+      if (isMyPiece) {
+        if (square === spaceChessbeardFrozenSquare) return
+        selectPiece(square, piece); return
+      }
       clearSelection()
       return
     }
 
-    if (isMyPiece) selectPiece(square, piece)
+    if (isMyPiece) {
+      if (square === spaceChessbeardFrozenSquare) return
+      selectPiece(square, piece)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chess, selectedSquare, validTargets, unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode,
       blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare,
+      isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
+      legendaryHappyPawnPromoteSquare,
       hasUnipop, hasSpaceUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
-      hasBlackKing, hasHappyPawn, hasChessbeard, hasSpaceChessbeard,
-      hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
+      hasBlackKing, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
+      hasLegendaryHappyPawn, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
     setSelectedSquare(square)
@@ -548,12 +679,32 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
   const onChessbeardActivate = useCallback(() => {
     if (getStatus(chessRef.current) !== 'playing') return
-    const selectables = getChessbeardSelectablePieces(chessRef.current)
+    const selectables = getChessbeardSelectablePieces(chessRef.current, hasSpaceChessbeard)
     setIsChessbeardSelectMode(true)
     setChessbeardSacrificeSquare(null)
     setSelectedSquare(null)
     setValidTargets(selectables)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSpaceChessbeard])
+
+  const onSpaceHappyPawnPlace = useCallback(() => {
+    const cur = chessRef.current
+    if (getStatus(cur) !== 'playing') return
+    if (countPawnsInReserve(cur, cur.turn()) === 0) return
+    setIsSpaceHappyPawnPlaceMode(true)
+    setSelectedSquare(null)
+    setValidTargets(getSpaceHappyPawnPlacementTargets(cur))
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onLegendaryHappyPawnPromote = useCallback((piece: PieceSymbol) => {
+    if (!legendaryHappyPawnPromoteSquare || !promotePendingRef.current) return
+    const promoted = replacePieceAt(chessRef.current, legendaryHappyPawnPromoteSquare, piece)
+    chessRef.current = promoted
+    setLegendaryHappyPawnPromoteSquare(null)
+    promotePendingRef.current = null
+    clearSelection()
+    bump()
+  }, [legendaryHappyPawnPromoteSquare, bump])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timer: reset to 60s on each move
   useEffect(() => {
@@ -610,6 +761,15 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     }
   }, [lastMove])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Space Chessbeard freeze clears when the freeze-setter's turn comes back
+  useEffect(() => {
+    if (!freezeSetByColor || !spaceChessbeardFrozenSquare) return
+    if (chessRef.current.turn() === freezeSetByColor) {
+      setSpaceChessbeardFrozenSquare(null)
+      setFreezeSetByColor(null)
+    }
+  }, [tick])  // eslint-disable-line react-hooks/exhaustive-deps
+
   // Win / lose sound (fires once on transition to game-over)
   useEffect(() => {
     const cur = chessRef.current
@@ -665,14 +825,16 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       if (powerMove && powerMove.to !== immuneCQSquare) {
         chessRef.current = withRespawns(before, powerMove.newChess)
         setLastMove({ from: powerMove.from, to: powerMove.to })
+        moveHistoryRef.current.push(formatMoveNotation(before, powerMove.from, powerMove.to))
         bump()
       } else {
         // Fall back to minimax
-        const bestMove = getBestMove(before.fen(), 3)
+        const bestMove = getBestMove(before.fen(), 1)
         if (bestMove && bestMove.to !== immuneCQSquare) {
           const moved = applyPseudoLegalMove(before, bestMove.from, bestMove.to)
           chessRef.current = withRespawns(before, moved)
           setLastMove({ from: bestMove.from, to: bestMove.to })
+          moveHistoryRef.current.push(formatMoveNotation(before, bestMove.from, bestMove.to))
           bump()
         } else if (immuneCQSquare) {
           // Best move would capture immune CQ — fall back to a random legal move that doesn't
@@ -682,6 +844,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
             const moved = applyPseudoLegalMove(before, pick.from as Square, pick.to as Square)
             chessRef.current = withRespawns(before, moved)
             setLastMove({ from: pick.from as Square, to: pick.to as Square })
+            moveHistoryRef.current.push(formatMoveNotation(before, pick.from as Square, pick.to as Square))
             bump()
           }
         }
@@ -694,6 +857,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
   const onNewGame = useCallback(() => {
     chessRef.current = new Chess()
+    fenHistoryRef.current = []
+    moveHistoryRef.current = []
     clearSelection()
     setLastMove(null)
     setIsAIThinking(false)
@@ -705,6 +870,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setGameActive(true)
     setCrystalQueenVulnerable(false)
     setRespawnedSquares([])
+    setLegendaryHappyPawnPromoteSquare(null)
+    promotePendingRef.current = null
     prevPieceCountRef.current = 32
     prevStatusRef.current = 'playing'
     bump()
@@ -715,12 +882,23 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }, [])
 
   const onUndo = useCallback(() => {
+    if (legendaryHappyPawnPromoteSquare && promotePendingRef.current) {
+      chessRef.current = promotePendingRef.current.before
+      setLegendaryHappyPawnPromoteSquare(null)
+      promotePendingRef.current = null
+      clearSelection()
+      setLastMove(null)
+      bump()
+      return
+    }
     if (unipopState || unipopBonusSquare || isRookShootMode || rookChoiceSquare || isChessbeardSelectMode || chessbeardSacrificeSquare) {
       if (unipopBonusSquare) chessRef.current = toggleTurn(chessRef.current)
       clearSelection(); return
     }
-    const cur = chessRef.current
-    cur.undo(); cur.undo()
+    const prev = fenHistoryRef.current.pop()
+    if (!prev) return
+    moveHistoryRef.current.length = prev.moveCount
+    chessRef.current = new Chess(prev.fen, { skipValidation: true })
     clearSelection()
     setLastMove(null)
     setCrystalQueenVulnerable(false)
@@ -736,6 +914,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     : rawStatus
 
   const chessbeardAvailable = hasChessbeard
+    && !hasSpaceChessbeard
     && effectiveStatus === 'playing'
     && !isChessbeardSelectMode
     && chessbeardSacrificeSquare === null
@@ -744,7 +923,22 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     && unipopBonusSquare === null
     && !isRookShootMode
     && rookChoiceSquare === null
+    && !isSpaceChessbeardFreezeMode
     && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+
+  const spaceHappyPawnAvailable = hasSpaceHappyPawn
+    && effectiveStatus === 'playing'
+    && !isSpaceChessbeardFreezeMode
+    && !isSpaceHappyPawnPlaceMode
+    && !isChessbeardSelectMode
+    && chessbeardSacrificeSquare === null
+    && blackKingBonusSquare === null
+    && unipopState === null
+    && unipopBonusSquare === null
+    && !isRookShootMode
+    && rookChoiceSquare === null
+    && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+    && countPawnsInReserve(cur, cur.turn()) > 0
 
   return {
     board: buildBoard(cur),
@@ -753,7 +947,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     turn: cur.turn(),
     status: effectiveStatus,
     isCheck: cur.isCheck(),
-    moveHistory: cur.history(),
+    moveHistory: [...moveHistoryRef.current],
     lastMove,
     isAIThinking,
     unipopState,
@@ -767,8 +961,13 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     isChessbeardSelectMode,
     chessbeardSacrificeSquare,
     chessbeardAvailable,
+    isSpaceHappyPawnPlaceMode,
+    isSpaceChessbeardFreezeMode,
+    spaceChessbeardFrozenSquare,
+    spaceHappyPawnAvailable,
     crystalQueenVulnerable,
     respawnedSquares,
+    legendaryHappyPawnPromoteSquare,
     timeLeft,
     timedOut,
     resignedBy,
@@ -777,6 +976,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     onRookChoice,
     onSkipBlackKingBonus,
     onChessbeardActivate,
+    onSpaceHappyPawnPlace,
+    onLegendaryHappyPawnPromote,
     onNewGame,
     onUndo,
     onResign,

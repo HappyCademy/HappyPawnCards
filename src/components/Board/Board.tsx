@@ -6,12 +6,13 @@ import Piece from './Piece'
 import {
   CARD_POWERS, BABY_PIECE_IMAGES,
   UNIPOP_PIECE_IMAGE, ROBIN_ROOK_PIECE_IMAGE, PUZZLE_PETE_PIECE_IMAGE,
-  BLACK_KING_PIECE_IMAGE, CRYSTAL_QUEEN_PIECE_IMAGE, PIRATE_QUEEN_PIECE_IMAGE,
+  BLACK_KING_PIECE_IMAGE, CRYSTAL_QUEEN_PIECE_IMAGE, CRYSTAL_QUEEN_FULLART_PIECE_IMAGE, CRYSTAL_QUEEN_GOLDEN_PIECE_IMAGE, CRYSTAL_QUEEN_SPACE_PIECE_IMAGE, PIRATE_QUEEN_PIECE_IMAGE,
   HAPPY_PAWN_PIECE_IMAGE, KINGS_GUARD_PIECE_IMAGE,
-  GENERAL_GAMBIT_PIECE_IMAGE, GENERAL_GAMBIT_SPACE_PIECE_IMAGE,
+  GENERAL_GAMBIT_PIECE_IMAGE, GENERAL_GAMBIT_FULLART_PIECE_IMAGE, GENERAL_GAMBIT_GOLDEN_PIECE_IMAGE, GENERAL_GAMBIT_LEGENDARY_PIECE_IMAGE, GENERAL_GAMBIT_SPACE_PIECE_IMAGE,
 } from '../../data/powers'
 import SquareCell from './Square'
 import RookChoiceMenu from './RookChoiceMenu'
+import PromotionMenu from './PromotionMenu'
 import FireTrail from '../animations/FireTrail'
 import ArrowShot from '../animations/ArrowShot'
 
@@ -37,6 +38,10 @@ interface Props {
   aiCards?: CardVariant[]
   crystalQueenVulnerable?: boolean
   respawnedSquares?: ChessSquare[]
+  spaceChessbeardFrozenSquare?: ChessSquare | null
+  isSpaceHappyPawnPlaceMode?: boolean
+  legendaryHappyPawnPromoteSquare?: ChessSquare | null
+  onLegendaryHappyPawnPromote?: (piece: PieceSymbol) => void
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -49,6 +54,10 @@ export default function Board({
   isChessbeardSelectMode, chessbeardSacrificeSquare,
   onSquareClick, onRookChoice, playerCards, aiCards = [],
   crystalQueenVulnerable = false, respawnedSquares = [] as ChessSquare[],
+  spaceChessbeardFrozenSquare = null,
+  isSpaceHappyPawnPlaceMode = false,
+  legendaryHappyPawnPromoteSquare = null,
+  onLegendaryHappyPawnPromote,
 }: Props) {
   function buildPieceImageMap(cards: CardVariant[]): Partial<Record<PieceSymbol, string>> {
     const map: Partial<Record<PieceSymbol, string>> = {}
@@ -66,7 +75,7 @@ export default function Board({
       }
       // General Gambit: admiral sprite for all non-baby rarities
       if (card.characterId === 'general-gambit') {
-        map['p'] = card.rarity === 'space' ? GENERAL_GAMBIT_SPACE_PIECE_IMAGE : GENERAL_GAMBIT_PIECE_IMAGE
+        map['p'] = card.rarity === 'space' ? GENERAL_GAMBIT_SPACE_PIECE_IMAGE : card.rarity === 'legendary' ? GENERAL_GAMBIT_LEGENDARY_PIECE_IMAGE : card.rarity === 'fullart' ? GENERAL_GAMBIT_FULLART_PIECE_IMAGE : card.rarity === 'golden' ? GENERAL_GAMBIT_GOLDEN_PIECE_IMAGE : GENERAL_GAMBIT_PIECE_IMAGE
         continue
       }
       if (!power.pieceSymbol) continue
@@ -75,21 +84,21 @@ export default function Board({
         || (card.rarity === 'space' && power.implementedSpace)
       if (!isActive) continue
       if (card.characterId === 'unipop') {
-        map['n'] = UNIPOP_PIECE_IMAGE[card.rarity] ?? '/images/pieces/unipop-main.png'
+        map['n'] = UNIPOP_PIECE_IMAGE[card.rarity] ?? '/images/characters/unipop/piece.png'
       } else if (card.characterId === 'robin-rook') {
-        map['r'] = ROBIN_ROOK_PIECE_IMAGE[card.rarity] ?? '/images/pieces/robin-rook.png'
+        map['r'] = ROBIN_ROOK_PIECE_IMAGE[card.rarity] ?? '/images/characters/robin-rook/piece.png'
       } else if (card.characterId === 'puzzle-pete') {
-        map['b'] = PUZZLE_PETE_PIECE_IMAGE[card.rarity] ?? '/images/pieces/puzzle-pete-main.webp'
+        map['b'] = PUZZLE_PETE_PIECE_IMAGE[card.rarity] ?? '/images/characters/puzzle-pete/piece.png'
       } else if (card.characterId === 'black-king') {
-        map['k'] = BLACK_KING_PIECE_IMAGE
+        map['k'] = BLACK_KING_PIECE_IMAGE[card.rarity] ?? '/images/characters/black-king/piece.png'
       } else if (card.characterId === 'kings-guard') {
-        map['k'] = KINGS_GUARD_PIECE_IMAGE
+        map['k'] = KINGS_GUARD_PIECE_IMAGE[card.rarity] ?? '/images/characters/kings-guard/piece.png'
       } else if (card.characterId === 'crystal-queen') {
-        map['q'] = CRYSTAL_QUEEN_PIECE_IMAGE
+        map['q'] = card.rarity === 'space' ? CRYSTAL_QUEEN_SPACE_PIECE_IMAGE : card.rarity === 'fullart' ? CRYSTAL_QUEEN_FULLART_PIECE_IMAGE : card.rarity === 'golden' ? CRYSTAL_QUEEN_GOLDEN_PIECE_IMAGE : CRYSTAL_QUEEN_PIECE_IMAGE
       } else if (card.characterId === 'pirate-queen') {
         map['q'] = PIRATE_QUEEN_PIECE_IMAGE
       } else if (card.characterId === 'happy-pawn') {
-        map['p'] = HAPPY_PAWN_PIECE_IMAGE
+        map['p'] = HAPPY_PAWN_PIECE_IMAGE[card.rarity] ?? '/images/characters/happy-pawn/piece.png'
       } else {
         map[power.pieceSymbol] = card.image
       }
@@ -123,12 +132,21 @@ export default function Board({
     if (status !== 'playing') return
     const sq = getSquareAt(e.clientX, e.clientY)
     if (!sq) return
+
     let piece: BoardPiece | null = null
     outer: for (const row of board) {
       for (const p of row) { if (p?.square === sq) { piece = p; break outer } }
     }
-    if (!piece) return
+
+    // Always prevent the subsequent click event so Square's onClick never fires
     e.preventDefault()
+
+    if (!piece) {
+      // Empty square — call immediately, no drag
+      onSquareClick(sq)
+      return
+    }
+
     const p = piece
     const cardImg = p.color === 'w' ? whitePieceImageMap[p.type] : blackPieceImageMap[p.type]
     pendingRef.current = { sq, startX: e.clientX, startY: e.clientY }
@@ -232,6 +250,8 @@ export default function Board({
             const isChessbeardTarget = chessbeardSacrificeSquare !== null && validTargets.includes(square)
             const isCrystalQueenVulnerable = crystalQueenVulnerable && crystalQueenSquare === square
             const isCrystalQueenProtected = !crystalQueenVulnerable && crystalQueenSquare === square
+            const isSpaceChessbeardFrozen = spaceChessbeardFrozenSquare === square
+            const isSpaceHappyPawnTarget = isSpaceHappyPawnPlaceMode && validTargets.includes(square)
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined
@@ -253,11 +273,12 @@ export default function Board({
                 isChessbeardTarget={isChessbeardTarget}
                 isCrystalQueenVulnerable={isCrystalQueenVulnerable}
                 isCrystalQueenProtected={isCrystalQueenProtected}
+                isSpaceChessbeardFrozen={isSpaceChessbeardFrozen}
+                isSpaceHappyPawnTarget={isSpaceHappyPawnTarget}
                 isDraggingFrom={dragging?.from === square}
                 isDragOver={dragOver === square}
                 isUnipopStepTarget={isUnipopBuildingPath && validTargets.includes(square)}
                 isRespawning={respawnedSquares.includes(square)}
-                onClick={onSquareClick}
                 showCoords={true}
                 rank={colIdx === 0 ? rank : undefined}
                 file={rowIdx === 7 ? file : undefined}
@@ -301,6 +322,12 @@ export default function Board({
           square={rookChoiceSquare}
           onChoice={onRookChoice}
           onClose={() => onSquareClick(rookChoiceSquare)}
+        />
+      )}
+      {legendaryHappyPawnPromoteSquare && onLegendaryHappyPawnPromote && (
+        <PromotionMenu
+          square={legendaryHappyPawnPromoteSquare}
+          onChoice={onLegendaryHappyPawnPromote}
         />
       )}
     </div>

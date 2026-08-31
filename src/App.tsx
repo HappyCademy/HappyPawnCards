@@ -1,31 +1,114 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useChessGame, type GameMode, type GameStatus, type BoardPiece } from './hooks/useChessGame'
 import type { Color, PieceSymbol } from 'chess.js'
 import Board from './components/Board/Board'
 import GameInfo from './components/GameInfo/GameInfo'
 import CardSelectionScreen from './components/CardSelection/CardSelectionScreen'
 import ModeSelectionScreen, { type GameMode as UiGameMode } from './components/ModeSelection/ModeSelectionScreen'
-import { RARITIES, type CardVariant, pickRandomCards } from './data/cards'
+import SignInScreen from './components/Auth/SignInScreen'
+import { useAuth } from './hooks/useAuth'
+import CampaignScreen, { CAMPAIGN_CHARS } from './components/Campaign/CampaignScreen'
+import DialogueScreen from './components/Campaign/DialogueScreen'
+import ShopScreen, { generatePackCards } from './components/Shop/ShopScreen'
+import CollectionScreen from './components/Collection/CollectionScreen'
+import { RARITIES, ALL_CARDS, type CardVariant, pickRandomCards } from './data/cards'
 import { CARD_POWERS } from './data/powers'
+import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dialogue'
 import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 
-type AppScreen = 'mode' | 'p1-selection' | 'p2-selection' | 'game'
+type AppScreen = 'mode' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'game'
 
 interface PickedCards {
-  player: [CardVariant, CardVariant]
-  ai: [CardVariant, CardVariant]
+  player: CardVariant[]
+  ai: CardVariant[]
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
+function pickTestCards(count: number): CardVariant[] {
+  const implementedIds = new Set(
+    Object.entries(CARD_POWERS).filter(([, def]) => def.implemented).map(([id]) => id)
+  )
+  const candidates = ALL_CARDS.filter(c => implementedIds.has(c.characterId) && c.rarity === 'basic')
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
+  const picked: CardVariant[] = []
+  const usedSymbols = new Set<string>()
+  for (const card of shuffled) {
+    if (picked.length >= count) break
+    const sym = CARD_POWERS[card.characterId]?.pieceSymbol
+    if (sym && usedSymbols.has(sym)) continue
+    if (sym) usedSymbols.add(sym)
+    picked.push(card)
+  }
+  return picked
+}
+
 export default function App() {
+  const auth = useAuth()
   const [screen, setScreen] = useState<AppScreen>('mode')
+  const [pendingMode, setPendingMode] = useState<UiGameMode | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('vsComputer')
   const [pickedCards, setPickedCards] = useState<PickedCards | null>(null)
-  const [pendingP1Cards, setPendingP1Cards] = useState<[CardVariant, CardVariant] | null>(null)
+  const [pendingP1Cards, setPendingP1Cards] = useState<CardVariant[] | null>(null)
   const [zoomedCard, setZoomedCard] = useState<CardVariant | null>(null)
   const [confirmedTurn, setConfirmedTurn] = useState<Color>('w')
+  type CampaignChapter = 1 | 2 | 3
+  interface CampaignProgress { ch1: number; ch2: number; ch3: number }
+
+  const [campaignProgress, setCampaignProgress] = useState<CampaignProgress>(() => {
+    try {
+      const saved = localStorage.getItem('campaignProgress')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed === 'number') return { ch1: parsed, ch2: 0, ch3: 0 }
+        return parsed as CampaignProgress
+      }
+    } catch {}
+    return { ch1: 0, ch2: 0, ch3: 0 }
+  })
+  const [campaignOpponent, setCampaignOpponent] = useState<{ chapter: CampaignChapter; idx: number } | null>(null)
+  const [pendingCampaignAi, setPendingCampaignAi] = useState<CardVariant[] | null>(null)
+  const [campaignLastResult, setCampaignLastResult] = useState<'win' | 'lose' | null>(null)
+
+  const [coins, setCoins] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('coins') ?? '0') || 0 } catch { return 0 }
+  })
+
+  const [ownedCardIds, setOwnedCardIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('ownedCards')
+      if (saved) return new Set<string>(JSON.parse(saved))
+    } catch {}
+    // Start with no cards — earn them through campaign
+    return new Set<string>()
+  })
+
+  const [finaleSceneIdx, setFinaleSceneIdx] = useState(0)
+
+  const coinsAwardedRef = useRef(false)
+
+  function getCampaignOpponentCards(charId: string, chapter: CampaignChapter): CardVariant[] {
+    if (charId === 'finale') {
+      return [
+        ALL_CARDS.find(c => c.characterId === 'puzzle-pete' && c.rarity === 'basic')!,
+        ALL_CARDS.find(c => c.characterId === 'kings-guard' && c.rarity === 'basic')!,
+        ALL_CARDS.find(c => c.characterId === 'black-king' && c.rarity === 'basic')!,
+      ]
+    }
+    const power = CARD_POWERS[charId]
+    const basicCard = ALL_CARDS.find(c => c.characterId === charId && c.rarity === 'basic')!
+    if (chapter === 1) {
+      return [basicCard]
+    }
+    if (chapter === 2) {
+      const legendId = power?.legendaryUpgrade ?? charId
+      const legendCard = ALL_CARDS.find(c => c.characterId === legendId && c.rarity === 'legendary') ?? basicCard
+      return [legendCard, basicCard]
+    }
+    const spaceCard = ALL_CARDS.find(c => c.characterId === charId && c.rarity === 'space') ?? basicCard
+    return [spaceCard, basicCard]
+  }
 
   const playerCards = pickedCards?.player ?? []
   const aiCards = pickedCards?.ai ?? []
@@ -36,29 +119,84 @@ export default function App() {
     unipopState, unipopBonusSquare, unipopPathCaptures,
     rookChoiceSquare, isRookShootMode, fireTrailSquares, arrowShot,
     blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare, chessbeardAvailable,
-    crystalQueenVulnerable, respawnedSquares,
+    isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceChessbeardFrozenSquare, spaceHappyPawnAvailable,
+    crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
     timeLeft, timedOut, resignedBy,
-    onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onNewGame, onUndo, onResign,
+    onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace,
+    onLegendaryHappyPawnPromote, onNewGame, onUndo, onResign,
   } = useChessGame({ playerCards, aiCards, gameMode })
 
-  function handleModeSelect(mode: UiGameMode) {
+  const GATED_MODES: UiGameMode[] = ['campaign', 'vsPlayer']
+
+  function handleModeSelect(mode: UiGameMode | 'sign-in') {
     if (mode === 'online') return
+    if (mode === 'sign-in') { setScreen('sign-in'); return }
+    if (GATED_MODES.includes(mode) && !auth.user) {
+      setPendingMode(mode)
+      setScreen('sign-in')
+      return
+    }
+    if (mode === 'campaign') {
+      setGameMode('vsComputer')
+      setScreen('campaign')
+      return
+    }
     setGameMode(mode)
     setScreen('p1-selection')
   }
 
-  function handleP1Done(picks: [CardVariant, CardVariant]) {
+  function handleSignInSuccess() {
+    const mode = pendingMode
+    setPendingMode(null)
+    if (mode === 'campaign') {
+      setGameMode('vsComputer')
+      setScreen('campaign')
+    } else if (mode) {
+      setGameMode(mode as GameMode)
+      setScreen('p1-selection')
+    } else {
+      setScreen('mode')
+    }
+  }
+
+  function handleCampaignNodeClick(chapter: CampaignChapter, idx: number) {
+    const opponentId = CAMPAIGN_CHARS[idx]
+    const opponentCards = getCampaignOpponentCards(opponentId, chapter)
+    setCampaignOpponent({ chapter, idx })
+    setPendingCampaignAi(opponentCards)
+    setCampaignLastResult(null)
+    if (idx === 9) {
+      setFinaleSceneIdx(0)
+      setScreen('finale-dialogue')
+    } else {
+      setScreen('pre-dialogue')
+    }
+  }
+
+  function handleTestPowers() {
+    setGameMode('vsPlayer')
+    setPickedCards({ player: pickTestCards(3), ai: pickTestCards(3) })
+    setCampaignOpponent(null)
+    setPendingCampaignAi(null)
+    setConfirmedTurn('w')
+    setScreen('game')
+  }
+
+  function handleP1Done(picks: CardVariant[]) {
     if (gameMode === 'vsPlayer') {
       setPendingP1Cards(picks)
       setScreen('p2-selection')
+    } else if (pendingCampaignAi) {
+      setPickedCards({ player: picks, ai: pendingCampaignAi })
+      setScreen('game')
     } else {
-      const ai = pickRandomCards(2) as [CardVariant, CardVariant]
+      const ai = pickRandomCards(2)
       setPickedCards({ player: picks, ai })
       setScreen('game')
     }
   }
 
-  function handleP2Done(picks: [CardVariant, CardVariant]) {
+  function handleP2Done(picks: CardVariant[]) {
     setPickedCards({ player: pendingP1Cards!, ai: picks })
     setPendingP1Cards(null)
     setScreen('game')
@@ -78,24 +216,255 @@ export default function App() {
   }
 
   function handleMainMenu() {
+    const opponent = campaignOpponent
+    const result = campaignLastResult
     onNewGame()
     setPickedCards(null)
     setPendingP1Cards(null)
     setConfirmedTurn('w')
-    setScreen('mode')
+    if (opponent !== null && result !== null) {
+      if (opponent.idx === 9) {
+        setFinaleSceneIdx(0)
+        setScreen('finale-dialogue')
+      } else {
+        setScreen('post-dialogue')
+      }
+    } else {
+      setCampaignOpponent(null)
+      setPendingCampaignAi(null)
+      setCampaignLastResult(null)
+      setScreen(opponent !== null ? 'campaign' : 'mode')
+    }
+  }
+
+  function handlePostDialogueContinue() {
+    setCampaignOpponent(null)
+    setPendingCampaignAi(null)
+    setCampaignLastResult(null)
+    setScreen('campaign')
+  }
+
+  function handleBuyPack(): CardVariant[] {
+    const PACK_COST = 100
+    if (coins < PACK_COST) return []
+    const cards = generatePackCards()
+    setCoins(prev => {
+      const next = prev - PACK_COST
+      localStorage.setItem('coins', next.toString())
+      return next
+    })
+    setOwnedCardIds(prev => {
+      const next = new Set(prev)
+      for (const card of cards) next.add(card.id)
+      localStorage.setItem('ownedCards', JSON.stringify([...next]))
+      return next
+    })
+    return cards
+  }
+
+  useEffect(() => {
+    if (status === 'playing') { coinsAwardedRef.current = false; return }
+    if (screen !== 'game') return
+    if (coinsAwardedRef.current) return
+    coinsAwardedRef.current = true
+
+    const isCampaignWin = campaignOpponent !== null && status === 'white-wins'
+    const coinsEarned = status === 'white-wins' ? (isCampaignWin ? 80 : 50) : status === 'draw' ? 20 : 15
+    setCoins(prev => {
+      const next = prev + coinsEarned
+      localStorage.setItem('coins', next.toString())
+      return next
+    })
+
+    if (campaignOpponent !== null) {
+      setCampaignLastResult(status === 'white-wins' ? 'win' : 'lose')
+      if (status === 'white-wins') {
+        const { chapter, idx } = campaignOpponent
+        const key = `ch${chapter}` as keyof CampaignProgress
+        setCampaignProgress(prev => {
+          const next = { ...prev, [key]: Math.max(prev[key], idx + 1) }
+          localStorage.setItem('campaignProgress', JSON.stringify(next))
+          return next
+        })
+        // Unlock basic (ch1), legendary (ch2), or space (ch3) card for the defeated character
+        const charId = CAMPAIGN_CHARS[idx]
+        if (charId !== 'finale') {
+          const unlockId = chapter === 1 ? `${charId}_1basic` : chapter === 2 ? `${charId}_6legend` : `${charId}_8space`
+          setOwnedCardIds(prev => {
+            if (prev.has(unlockId)) return prev
+            const next = new Set(prev)
+            next.add(unlockId)
+            localStorage.setItem('ownedCards', JSON.stringify([...next]))
+            return next
+          })
+        }
+      }
+    }
+  }, [status])
+
+  if (auth.loading) return null
+
+  if (screen === 'sign-in') {
+    return (
+      <SignInScreen
+        auth={auth}
+        onBack={() => { setPendingMode(null); setScreen('mode') }}
+        onSuccess={handleSignInSuccess}
+      />
+    )
+  }
+
+  if (screen === 'collection') {
+    return (
+      <CollectionScreen
+        ownedCardIds={ownedCardIds}
+        onBack={() => setScreen('mode')}
+      />
+    )
   }
 
   if (screen === 'mode') {
-    return <ModeSelectionScreen onSelect={handleModeSelect} />
+    return (
+      <ModeSelectionScreen
+        onSelect={handleModeSelect}
+        isSignedIn={!!auth.user}
+        userEmail={auth.user?.email}
+        onSignOut={() => auth.signOut()}
+        onCollection={() => setScreen('collection')}
+        onTestPowers={handleTestPowers}
+      />
+    )
+  }
+
+  if (screen === 'campaign') {
+    return (
+      <CampaignScreen
+        progress={campaignProgress}
+        coins={coins}
+        onSelectOpponent={handleCampaignNodeClick}
+        onBack={() => { setCampaignOpponent(null); setPendingCampaignAi(null); setScreen('mode') }}
+        onShop={() => setScreen('shop')}
+      />
+    )
+  }
+
+  if (screen === 'shop') {
+    return (
+      <ShopScreen
+        coins={coins}
+        ownedCardIds={ownedCardIds}
+        onBuyPack={handleBuyPack}
+        onBack={() => setScreen('campaign')}
+      />
+    )
+  }
+
+  if (screen === 'pre-dialogue' && campaignOpponent !== null) {
+    const charId = CAMPAIGN_CHARS[campaignOpponent.idx]
+    return (
+      <DialogueScreen
+        charId={charId}
+        chapter={campaignOpponent.chapter}
+        phase="pre"
+        onContinue={() => {
+          if (ownedCardIds.size === 0) {
+            // No cards yet — skip card selection and go straight to battle
+            setPickedCards({ player: [], ai: pendingCampaignAi! })
+            setScreen('game')
+          } else {
+            setScreen('p1-selection')
+          }
+        }}
+        continueLabel="⚔ Fight!"
+        onBack={() => { setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null); setScreen('campaign') }}
+      />
+    )
+  }
+
+  if (screen === 'finale-dialogue' && campaignOpponent !== null) {
+    const isPost = campaignLastResult !== null
+    const scenes = isPost
+      ? (campaignLastResult === 'win' ? FINALE_POST_WIN : FINALE_POST_LOSE)
+      : FINALE_PRE_SCENES
+    const scene = scenes[finaleSceneIdx] ?? scenes[scenes.length - 1]
+    const isLastScene = finaleSceneIdx >= scenes.length - 1
+
+    return (
+      <DialogueScreen
+        charId={scene.charId}
+        chapter={campaignOpponent.chapter}
+        phase={isPost ? (campaignLastResult === 'win' ? 'postWin' : 'postLose') : 'pre'}
+        linesOverride={scene.lines}
+        headerLabel="Chapter 1 — Final Battle"
+        onContinue={() => {
+          if (isLastScene) {
+            if (isPost) {
+              handlePostDialogueContinue()
+            } else {
+              if (ownedCardIds.size === 0) {
+                setPickedCards({ player: [], ai: pendingCampaignAi! })
+                setScreen('game')
+              } else {
+                setScreen('p1-selection')
+              }
+            }
+          } else {
+            setFinaleSceneIdx(i => i + 1)
+          }
+        }}
+        continueLabel={isLastScene && !isPost ? '⚔ Fight!' : undefined}
+        onBack={!isPost ? () => { setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null); setScreen('campaign') } : undefined}
+      />
+    )
+  }
+
+  if (screen === 'post-dialogue' && campaignOpponent !== null && campaignLastResult !== null) {
+    const charId = CAMPAIGN_CHARS[campaignOpponent.idx]
+    return (
+      <DialogueScreen
+        charId={charId}
+        chapter={campaignOpponent.chapter}
+        phase={campaignLastResult === 'win' ? 'postWin' : 'postLose'}
+        onContinue={handlePostDialogueContinue}
+        continueLabel="Back to Map →"
+      />
+    )
   }
 
   if (screen === 'p1-selection') {
+    const isCampaign = campaignOpponent !== null
+    const opponentName = isCampaign ? CAMPAIGN_CHARS[campaignOpponent!.idx] : null
+    const CHAR_NAMES: Record<string, string> = {
+      'happy-pawn': 'Happy Pawn', 'chessbeard': 'Chessbeard', 'black-king': 'Black King',
+      'general-gambit': 'General Gambit', 'kings-guard': "King's Guard", 'puzzle-pete': 'Puzzle Pete',
+      'crystal-queen': 'Crystal Queen', 'unipop': 'Unipop', 'robin-rook': 'Robin Rook',
+    }
     return (
       <CardSelectionScreen
         onDone={handleP1Done}
-        onBack={() => setScreen('mode')}
-        playerLabel={gameMode === 'vsPlayer' ? 'Player 1 (White) — Pick 2 cards' : 'Pick 2 cards to bring into battle'}
+        onBack={() => {
+          if (!isCampaign) { setScreen('mode'); return }
+          if (campaignOpponent!.idx === 9) {
+            setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null)
+            setScreen('campaign')
+          } else {
+            setScreen('pre-dialogue')
+          }
+        }}
+        playerLabel={
+          isCampaign
+            ? campaignOpponent!.idx === 9
+              ? 'Final Battle — Pick 1 card'
+              : campaignOpponent!.chapter === 1
+                ? `vs ${CHAR_NAMES[opponentName!]} — Pick 1 card`
+                : `vs ${CHAR_NAMES[opponentName!]} — Pick 2 cards`
+            : gameMode === 'vsPlayer'
+              ? 'Player 1 (White) — Pick 2 cards'
+              : 'Pick 2 cards to bring into battle'
+        }
         buttonLabel={gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
+        ownedCardIds={ownedCardIds}
+        maxPicksOverride={isCampaign && campaignOpponent!.chapter === 1 ? 1 : undefined}
       />
     )
   }
@@ -107,6 +476,7 @@ export default function App() {
         onBack={() => { setPendingP1Cards(null); setScreen('p1-selection') }}
         playerLabel="Player 2 (Black) — Pick 2 cards"
         buttonLabel="⚔ Start Game"
+        ownedCardIds={ownedCardIds}
       />
     )
   }
@@ -116,10 +486,11 @@ export default function App() {
     turn, status, moveHistory, isAIThinking, unipopState, unipopBonusSquare, unipopPathCaptures,
     rookChoiceSquare, isRookShootMode, fireTrailSquares, arrowShot,
     blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare, chessbeardAvailable,
-    crystalQueenVulnerable, respawnedSquares,
+    isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceChessbeardFrozenSquare, spaceHappyPawnAvailable,
+    crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
     timeLeft, timedOut, resignedBy, gameMode,
   }
-  const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onNewGame: handleMainMenu, onUndo, onResign }
+  const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace, onLegendaryHappyPawnPromote, onNewGame: handleMainMenu, onUndo, onResign }
 
   const isVsPlayer = gameMode === 'vsPlayer'
   const topLabel = isVsPlayer ? 'Player 2 (Black)' : 'AI (Black)'
@@ -138,7 +509,7 @@ export default function App() {
       {/* Header */}
       <header className="mb-3 text-center flex flex-col items-center">
         <img
-          src="/images/logo.png"
+          src="/images/logo.svg"
           alt="Happy Pawn Cards"
           style={{
             height: 'clamp(56px, 10vw, 80px)',
@@ -147,13 +518,13 @@ export default function App() {
           }}
         />
         <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '11px', letterSpacing: '0.08em' }}>
-          {isVsPlayer ? 'VS Player' : 'VS Computer'}
+          {isVsPlayer ? 'VS Player' : campaignOpponent !== null ? 'Campaign' : 'VS Computer'}
         </p>
       </header>
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
         {/* Top: black/AI cards + black's captures */}
-        {pickedCards && (
+        {pickedCards && pickedCards.ai.length > 0 && (
           <CardStrip
             label={topLabel}
             cards={pickedCards.ai}
@@ -188,6 +559,10 @@ export default function App() {
               aiCards={aiCards}
               crystalQueenVulnerable={crystalQueenVulnerable}
               respawnedSquares={respawnedSquares}
+              spaceChessbeardFrozenSquare={spaceChessbeardFrozenSquare}
+              isSpaceHappyPawnPlaceMode={isSpaceHappyPawnPlaceMode}
+              legendaryHappyPawnPromoteSquare={legendaryHappyPawnPromoteSquare}
+              onLegendaryHappyPawnPromote={onLegendaryHappyPawnPromote}
             />
           </div>
           <div className="w-full lg:w-64 flex-shrink-0">
@@ -197,7 +572,7 @@ export default function App() {
 
         {/* Bottom: white's captures + white/player cards */}
         <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
-        {pickedCards && (
+        {pickedCards && pickedCards.player.length > 0 && (
           <CardStrip
             label={bottomLabel}
             cards={pickedCards.player}
@@ -223,6 +598,7 @@ export default function App() {
           timedOut={timedOut}
           resignedBy={resignedBy}
           gameMode={gameMode}
+          isCampaign={campaignOpponent !== null}
           onPlayAgain={handlePlayAgain}
           onChangeCards={handleChangeCards}
           onMainMenu={handleMainMenu}
@@ -257,19 +633,47 @@ export default function App() {
               src={zoomedCard.image}
               alt={zoomedCard.name}
               style={{
-                maxHeight: '80vh', maxWidth: '88vw',
+                maxHeight: '60vh', maxWidth: '80vw',
                 borderRadius: '16px',
                 boxShadow: '0 0 60px rgba(0,0,0,0.9), 0 0 0 1px rgba(201,162,39,0.2)',
               }}
             />
-            <div className="text-center">
-              <p style={{ fontFamily: D, color: 'var(--ivory)', fontWeight: 600, letterSpacing: '0.04em' }}>
-                {zoomedCard.name}
-              </p>
-              <p style={{ fontFamily: B, fontSize: '12px', color: RARITIES.find(r => r.key === zoomedCard.rarity)?.color }}>
-                {RARITIES.find(r => r.key === zoomedCard.rarity)?.label}
-              </p>
-            </div>
+            {(() => {
+              const power = CARD_POWERS[zoomedCard.characterId]
+              const upgradeId = power?.legendaryUpgrade
+              const up = upgradeId ? CARD_POWERS[upgradeId] : null
+              const isSpace = zoomedCard.rarity === 'space'
+              const isLegendary = zoomedCard.rarity === 'legendary'
+              const label = isSpace && power?.spacePowerLabel ? power.spacePowerLabel
+                : isLegendary && up ? up.powerLabel
+                : isLegendary && power?.legendaryPowerLabel ? power.legendaryPowerLabel
+                : power?.powerLabel
+              const description = isSpace && power?.spacePowerDescription ? power.spacePowerDescription
+                : isLegendary && up ? up.powerDescription
+                : isLegendary && power?.legendaryPowerDescription ? power.legendaryPowerDescription
+                : power?.powerDescription
+              const rarityMeta = RARITIES.find(r => r.key === zoomedCard.rarity)
+              return (
+                <div style={{ textAlign: 'center', maxWidth: '320px', padding: '0 8px' }}>
+                  <p style={{ fontFamily: D, color: 'var(--ivory)', fontWeight: 600, letterSpacing: '0.04em', fontSize: '16px' }}>
+                    {zoomedCard.name}
+                  </p>
+                  <p style={{ fontFamily: B, fontSize: '12px', color: rarityMeta?.color, marginBottom: '10px' }}>
+                    {rarityMeta?.label}
+                  </p>
+                  {label && (
+                    <p style={{ fontFamily: "'Cinzel', Georgia, serif", fontSize: '13px', fontWeight: 600, color: 'var(--gold)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+                      {label}
+                    </p>
+                  )}
+                  {description && (
+                    <p style={{ fontFamily: B, fontSize: '13px', color: 'var(--ivory-dim)', lineHeight: 1.55, maxWidth: '300px' }}>
+                      {description}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -343,7 +747,7 @@ function CapturedPieces({ pieces, capturedColor, advantage, onPieceClick }: {
 
 function CardStrip({ label, cards, accent, onCardClick }: {
   label: string
-  cards: [CardVariant, CardVariant]
+  cards: CardVariant[]
   accent: string
   onCardClick: (card: CardVariant) => void
 }) {
@@ -412,11 +816,12 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, onPlayAgain, onChangeCards, onMainMenu }: {
+function GameOverOverlay({ status, timedOut, resignedBy, gameMode, isCampaign, onPlayAgain, onChangeCards, onMainMenu }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
   gameMode: GameMode
+  isCampaign: boolean
   onPlayAgain: () => void
   onChangeCards: () => void
   onMainMenu: () => void
@@ -614,7 +1019,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, onPlayAgain, 
               color: 'rgba(138,117,96,0.4)',
             }}
           >
-            Main Menu
+            {isCampaign ? 'Back to Map' : 'Main Menu'}
           </button>
         </div>
       </div>
