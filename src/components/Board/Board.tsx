@@ -6,9 +6,9 @@ import Piece from './Piece'
 import {
   CARD_POWERS, BABY_PIECE_IMAGES,
   UNIPOP_PIECE_IMAGE, ROBIN_ROOK_PIECE_IMAGE, PUZZLE_PETE_PIECE_IMAGE,
-  BLACK_KING_PIECE_IMAGE, CRYSTAL_QUEEN_PIECE_IMAGE, CRYSTAL_QUEEN_FULLART_PIECE_IMAGE, CRYSTAL_QUEEN_GOLDEN_PIECE_IMAGE, CRYSTAL_QUEEN_SPACE_PIECE_IMAGE, PIRATE_QUEEN_PIECE_IMAGE,
+  BLACK_KING_PIECE_IMAGE, CRYSTAL_QUEEN_PIECE_IMAGE, PIRATE_QUEEN_PIECE_IMAGE,
   HAPPY_PAWN_PIECE_IMAGE, KINGS_GUARD_PIECE_IMAGE,
-  GENERAL_GAMBIT_PIECE_IMAGE, GENERAL_GAMBIT_FULLART_PIECE_IMAGE, GENERAL_GAMBIT_GOLDEN_PIECE_IMAGE, GENERAL_GAMBIT_LEGENDARY_PIECE_IMAGE, GENERAL_GAMBIT_SPACE_PIECE_IMAGE,
+  GENERAL_GAMBIT_PIECE_IMAGE,
 } from '../../data/powers'
 import SquareCell from './Square'
 import RookChoiceMenu from './RookChoiceMenu'
@@ -73,9 +73,9 @@ export default function Board({
         }
         continue
       }
-      // General Gambit: admiral sprite for all non-baby rarities
+      // General Gambit: sprite keyed by rarity
       if (card.characterId === 'general-gambit') {
-        map['p'] = card.rarity === 'space' ? GENERAL_GAMBIT_SPACE_PIECE_IMAGE : card.rarity === 'legendary' ? GENERAL_GAMBIT_LEGENDARY_PIECE_IMAGE : card.rarity === 'fullart' ? GENERAL_GAMBIT_FULLART_PIECE_IMAGE : card.rarity === 'golden' ? GENERAL_GAMBIT_GOLDEN_PIECE_IMAGE : GENERAL_GAMBIT_PIECE_IMAGE
+        map['p'] = GENERAL_GAMBIT_PIECE_IMAGE[card.rarity] ?? '/images/characters/general-gambit/basic-piece.png'
         continue
       }
       if (!power.pieceSymbol) continue
@@ -94,7 +94,7 @@ export default function Board({
       } else if (card.characterId === 'kings-guard') {
         map['k'] = KINGS_GUARD_PIECE_IMAGE[card.rarity] ?? '/images/characters/kings-guard/piece.png'
       } else if (card.characterId === 'crystal-queen') {
-        map['q'] = card.rarity === 'space' ? CRYSTAL_QUEEN_SPACE_PIECE_IMAGE : card.rarity === 'fullart' ? CRYSTAL_QUEEN_FULLART_PIECE_IMAGE : card.rarity === 'golden' ? CRYSTAL_QUEEN_GOLDEN_PIECE_IMAGE : CRYSTAL_QUEEN_PIECE_IMAGE
+        map['q'] = CRYSTAL_QUEEN_PIECE_IMAGE[card.rarity] ?? '/images/characters/crystal-queen/basic-piece.png'
       } else if (card.characterId === 'pirate-queen') {
         map['q'] = PIRATE_QUEEN_PIECE_IMAGE
       } else if (card.characterId === 'happy-pawn') {

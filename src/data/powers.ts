@@ -113,54 +113,63 @@ export const BABY_PIECE_IMAGES: Partial<Record<string, string>> = {
 }
 
 export const UNIPOP_PIECE_IMAGE: Partial<Record<string, string>> = {
-  basic:     '/images/characters/unipop/fullart-piece.png',
-  baby:      '/images/characters/unipop/fullart-piece.png',
+  basic:     '/images/characters/unipop/basic-piece.png',
+  baby:      '/images/characters/unipop/baby-piece.png',
   fullart:   '/images/characters/unipop/fullart-piece.png',
-  foil:      '/images/characters/unipop/fullart-piece.png',
+  foil:      '/images/characters/unipop/basic-piece.png',
   golden:    '/images/characters/unipop/golden-piece.png',
   legendary: '/images/characters/unipop/legendary-piece.png',
   space:     '/images/characters/unipop/space-piece.png',
 }
 
 export const ROBIN_ROOK_PIECE_IMAGE: Partial<Record<string, string>> = {
-  basic:     '/images/characters/robin-rook/golden-piece.png',
-  baby:      '/images/characters/robin-rook/golden-piece.png',
-  fullart:   '/images/characters/robin-rook/golden-piece.png',
-  foil:      '/images/characters/robin-rook/golden-piece.png',
+  basic:     '/images/characters/robin-rook/basic-piece.png',
+  baby:      '/images/characters/robin-rook/baby-piece.png',
+  fullart:   '/images/characters/robin-rook/fullart-piece.png',
+  foil:      '/images/characters/robin-rook/basic-piece.png',
   golden:    '/images/characters/robin-rook/golden-piece.png',
-  legendary: '/images/characters/robin-rook/golden-piece.png',
+  legendary: '/images/characters/robin-rook/legendary-piece.png',
   space:     '/images/characters/robin-rook/space-piece.png',
 }
 
 export const PUZZLE_PETE_PIECE_IMAGE: Partial<Record<string, string>> = {
-  basic:     '/images/characters/puzzle-pete/golden-piece.png',
-  baby:      '/images/characters/puzzle-pete/golden-piece.png',
-  fullart:   '/images/characters/puzzle-pete/golden-piece.png',
-  foil:      '/images/characters/puzzle-pete/golden-piece.png',
+  basic:     '/images/characters/puzzle-pete/basic-piece.png',
+  baby:      '/images/characters/puzzle-pete/baby-piece.png',
+  fullart:   '/images/characters/puzzle-pete/fullart-piece.png',
+  foil:      '/images/characters/puzzle-pete/basic-piece.png',
   golden:    '/images/characters/puzzle-pete/golden-piece.png',
-  legendary: '/images/characters/puzzle-pete/golden-piece.png',
+  legendary: '/images/characters/puzzle-pete/golden-piece.png',  // no legendary-piece art
   space:     '/images/characters/puzzle-pete/space-piece.png',
 }
 
-export const CHESSBEARD_PIECE_IMAGE = '/images/characters/chessbeard/golden-piece.png'
-export const GENERAL_GAMBIT_PIECE_IMAGE = '/images/characters/general-gambit/golden-piece.png'
-export const GENERAL_GAMBIT_FULLART_PIECE_IMAGE = '/images/characters/general-gambit/fullart-piece.png'
-export const GENERAL_GAMBIT_GOLDEN_PIECE_IMAGE = '/images/characters/general-gambit/golden-piece.png'
-export const GENERAL_GAMBIT_LEGENDARY_PIECE_IMAGE = '/images/characters/general-gambit/legendary-piece.png'
-export const GENERAL_GAMBIT_SPACE_PIECE_IMAGE = '/images/characters/general-gambit/space-piece.png'
+export const CHESSBEARD_PIECE_IMAGE = '/images/characters/chessbeard/basic-piece.png'
+export const GENERAL_GAMBIT_PIECE_IMAGE: Partial<Record<string, string>> = {
+  basic:     '/images/characters/general-gambit/basic-piece.png',
+  baby:      '/images/characters/general-gambit/baby-piece.png',
+  fullart:   '/images/characters/general-gambit/fullart-piece.png',
+  foil:      '/images/characters/general-gambit/basic-piece.png',
+  golden:    '/images/characters/general-gambit/golden-piece.png',
+  legendary: '/images/characters/general-gambit/legendary-piece.png',
+  space:     '/images/characters/general-gambit/space-piece.png',
+}
 export const BLACK_KING_PIECE_IMAGE: Partial<Record<string, string>> = {
-  basic:     '/images/characters/black-king/fullart-piece.png',
-  baby:      '/images/characters/black-king/fullart-piece.png',
+  basic:     '/images/characters/black-king/basic-piece.png',
+  baby:      '/images/characters/black-king/baby-piece.png',
   fullart:   '/images/characters/black-king/fullart-piece.png',
-  foil:      '/images/characters/black-king/fullart-piece.png',
+  foil:      '/images/characters/black-king/basic-piece.png',
   golden:    '/images/characters/black-king/golden-piece.png',
-  legendary: '/images/characters/black-king/golden-piece.png',
+  legendary: '/images/characters/black-king/golden-piece.png',  // no legendary-piece art
   space:     '/images/characters/black-king/space-piece.png',
 }
-export const CRYSTAL_QUEEN_PIECE_IMAGE = '/images/characters/crystal-queen/golden-piece.png'
-export const CRYSTAL_QUEEN_FULLART_PIECE_IMAGE = '/images/characters/crystal-queen/golden-piece.png'
-export const CRYSTAL_QUEEN_GOLDEN_PIECE_IMAGE = '/images/characters/crystal-queen/golden-piece.png'
-export const CRYSTAL_QUEEN_SPACE_PIECE_IMAGE = '/images/characters/crystal-queen/space-piece.png'
+export const CRYSTAL_QUEEN_PIECE_IMAGE: Partial<Record<string, string>> = {
+  basic:     '/images/characters/crystal-queen/basic-piece.png',
+  baby:      '/images/characters/crystal-queen/baby-piece.png',
+  fullart:   '/images/characters/crystal-queen/fullart-piece.png',
+  foil:      '/images/characters/crystal-queen/basic-piece.png',
+  golden:    '/images/characters/crystal-queen/golden-piece.png',
+  legendary: '/images/characters/crystal-queen/legendary-piece.png',
+  space:     '/images/characters/crystal-queen/space-piece.png',
+}
 export const PIRATE_QUEEN_PIECE_IMAGE = ''
 export const HAPPY_PAWN_PIECE_IMAGE: Partial<Record<string, string>> = {
   basic:     '/images/characters/happy-pawn/basic-piece.png',
@@ -172,11 +181,11 @@ export const HAPPY_PAWN_PIECE_IMAGE: Partial<Record<string, string>> = {
   space:     '/images/characters/happy-pawn/space-piece.png',
 }
 export const KINGS_GUARD_PIECE_IMAGE: Partial<Record<string, string>> = {
-  basic:     '/images/characters/kings-guard/fullart-piece.png',
-  baby:      '/images/characters/kings-guard/fullart-piece.png',
+  basic:     '/images/characters/kings-guard/basic-piece.png',
+  baby:      '/images/characters/kings-guard/baby-piece.png',
   fullart:   '/images/characters/kings-guard/fullart-piece.png',
-  foil:      '/images/characters/kings-guard/fullart-piece.png',
+  foil:      '/images/characters/kings-guard/basic-piece.png',
   golden:    '/images/characters/kings-guard/golden-piece.png',
-  legendary: '/images/characters/kings-guard/golden-piece.png',
+  legendary: '/images/characters/kings-guard/legendary-piece.png',
   space:     '/images/characters/kings-guard/space-piece.png',
 }
