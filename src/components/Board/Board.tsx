@@ -130,7 +130,6 @@ export default function Board({
   const whitePieceCardMap = buildPieceCardMap(playerCards)
   const blackPieceCardMap = buildPieceCardMap(aiCards)
 
-  const hasUnipop = playerCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
   const isUnipopBuildingPath = unipopState !== null && unipopState.destination !== null
 
   // ── Drag and drop ─────────────────────────────────────────────────────────────
@@ -207,8 +206,14 @@ export default function Board({
       if (wasDragging) {
         const toSq = getSquareAt(ue.clientX, ue.clientY)
         onSquareClick(pending.sq)
-        // Unipop knights require deliberate 3-step clicks — drag just selects the piece
-        if (toSq && toSq !== pending.sq && !(hasUnipop && p.type === 'n')) onSquareClick(toSq)
+        // Some powers require deliberate multi-step clicks — drag just selects the piece
+        const colorCards = p.color === 'w' ? playerCards : aiCards
+        const isUnipopKnight = p.type === 'n' && colorCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
+        const isRobinRook   = p.type === 'r' && colorCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
+        const inSpecialMode = isChessbeardSelectMode || chessbeardSacrificeSquare !== null || isSpaceChessbeardFreezeMode
+        if (toSq && toSq !== pending.sq && !isUnipopKnight && !isRobinRook && !inSpecialMode) {
+          onSquareClick(toSq)
+        }
       } else {
         onSquareClick(pending.sq)
       }
