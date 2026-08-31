@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import type { GameState, GameActions } from '../../hooks/useChessGame'
 import type { CardVariant } from '../../data/cards'
-import { CARD_POWERS, RARITIES } from '../../data/powers'
+import { RARITIES } from '../../data/cards'
+import { CARD_POWERS } from '../../data/powers'
 import MoveHistory from './MoveHistory'
 import PieceSetPicker from './PieceSetPicker'
 
