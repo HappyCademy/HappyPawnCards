@@ -26,22 +26,21 @@ interface PickedCards {
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-function pickTestCards(count: number): CardVariant[] {
+function pickTestHands(perPlayer: number): { player: CardVariant[]; ai: CardVariant[] } {
   const implementedIds = new Set(
     Object.entries(CARD_POWERS).filter(([, def]) => def.implemented).map(([id]) => id)
   )
   const candidates = ALL_CARDS.filter(c => implementedIds.has(c.characterId) && c.rarity === 'basic')
   const shuffled = [...candidates].sort(() => Math.random() - 0.5)
   const picked: CardVariant[] = []
-  const usedSymbols = new Set<string>()
+  const usedCharIds = new Set<string>()
   for (const card of shuffled) {
-    if (picked.length >= count) break
-    const sym = CARD_POWERS[card.characterId]?.pieceSymbol
-    if (sym && usedSymbols.has(sym)) continue
-    if (sym) usedSymbols.add(sym)
+    if (picked.length >= perPlayer * 2) break
+    if (usedCharIds.has(card.characterId)) continue
+    usedCharIds.add(card.characterId)
     picked.push(card)
   }
-  return picked
+  return { player: picked.slice(0, perPlayer), ai: picked.slice(perPlayer) }
 }
 
 export default function App() {
@@ -174,8 +173,9 @@ export default function App() {
   }
 
   function handleTestPowers() {
+    const hands = pickTestHands(3)
     setGameMode('vsPlayer')
-    setPickedCards({ player: pickTestCards(3), ai: pickTestCards(3) })
+    setPickedCards(hands)
     setCampaignOpponent(null)
     setPendingCampaignAi(null)
     setConfirmedTurn('w')
