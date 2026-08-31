@@ -565,6 +565,7 @@ export default function App() {
               crystalQueenVulnerable={crystalQueenVulnerable}
               respawnedSquares={respawnedSquares}
               spaceChessbeardFrozenSquare={spaceChessbeardFrozenSquare}
+              isSpaceChessbeardFreezeMode={isSpaceChessbeardFreezeMode}
               isSpaceHappyPawnPlaceMode={isSpaceHappyPawnPlaceMode}
               legendaryHappyPawnPromoteSquare={legendaryHappyPawnPromoteSquare}
               onLegendaryHappyPawnPromote={onLegendaryHappyPawnPromote}

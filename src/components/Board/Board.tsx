@@ -39,6 +39,7 @@ interface Props {
   crystalQueenVulnerable?: boolean
   respawnedSquares?: ChessSquare[]
   spaceChessbeardFrozenSquare?: ChessSquare | null
+  isSpaceChessbeardFreezeMode?: boolean
   isSpaceHappyPawnPlaceMode?: boolean
   legendaryHappyPawnPromoteSquare?: ChessSquare | null
   onLegendaryHappyPawnPromote?: (piece: PieceSymbol) => void
@@ -57,6 +58,7 @@ export default function Board({
   onSquareClick, onRookChoice, playerCards, aiCards = [],
   crystalQueenVulnerable = false, respawnedSquares = [] as ChessSquare[],
   spaceChessbeardFrozenSquare = null,
+  isSpaceChessbeardFreezeMode = false,
   isSpaceHappyPawnPlaceMode = false,
   legendaryHappyPawnPromoteSquare = null,
   onLegendaryHappyPawnPromote,
