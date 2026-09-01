@@ -27,20 +27,30 @@ const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
 function pickTestHands(perPlayer: number): { player: CardVariant[]; ai: CardVariant[] } {
-  const implementedIds = new Set(
-    Object.entries(CARD_POWERS).filter(([, def]) => def.implemented).map(([id]) => id)
-  )
-  const candidates = ALL_CARDS.filter(c => implementedIds.has(c.characterId) && c.rarity === 'basic')
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-  const picked: CardVariant[] = []
-  const usedCharIds = new Set<string>()
+  // Pool: one entry per (characterId × rarity) where that rarity is implemented
+  const pool = ALL_CARDS.filter(c => {
+    const power = CARD_POWERS[c.characterId]
+    if (!power) return false
+    if (c.rarity === 'basic' && power.implemented) return true
+    if (c.rarity === 'legendary' && power.implementedLegendary) return true
+    if (c.rarity === 'space' && power.implementedSpace) return true
+    return false
+  })
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  // Pick for each player separately; same character allowed across hands (different rarity = different power)
+  const playerCards: CardVariant[] = []
+  const aiCards: CardVariant[] = []
+  const playerCharIds = new Set<string>()
+  const aiCharIds = new Set<string>()
   for (const card of shuffled) {
-    if (picked.length >= perPlayer * 2) break
-    if (usedCharIds.has(card.characterId)) continue
-    usedCharIds.add(card.characterId)
-    picked.push(card)
+    if (playerCards.length < perPlayer && !playerCharIds.has(card.characterId)) {
+      playerCards.push(card); playerCharIds.add(card.characterId)
+    } else if (aiCards.length < perPlayer && !aiCharIds.has(card.characterId)) {
+      aiCards.push(card); aiCharIds.add(card.characterId)
+    }
+    if (playerCards.length >= perPlayer && aiCards.length >= perPlayer) break
   }
-  return { player: picked.slice(0, perPlayer), ai: picked.slice(perPlayer) }
+  return { player: playerCards, ai: aiCards }
 }
 
 export default function App() {
@@ -175,7 +185,7 @@ export default function App() {
   }
 
   function handleTestPowers() {
-    const hands = pickTestHands(3)
+    const hands = pickTestHands(5)
     setGameMode('vsPlayer')
     setPickedCards(hands)
     setCampaignOpponent(null)
