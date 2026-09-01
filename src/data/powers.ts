@@ -10,6 +10,7 @@ export interface CardPowerDef {
   blackKingCapture?: boolean
   happyPawnPush?: boolean
   chessbeardSacrifice?: boolean
+  crystalQueenSwap?: boolean
   kingsGuardBlock?: boolean
   crystalQueenImmune?: boolean
   implemented: boolean
@@ -66,9 +67,9 @@ export const CARD_POWERS: Record<string, CardPowerDef> = {
     spacePowerDescription: "Your rook can shoot in all 8 directions — rank, file, and diagonals. No enemy is out of range!",
   },
   'crystal-queen': {
-    pieceSymbol: 'q', implemented: false, implementedSpace: true, crystalQueenImmune: true,
-    powerLabel: '🔮 Coming Soon',
-    powerDescription: "The Crystal Queen's standard power is still being forged. Check back soon!",
+    pieceSymbol: 'q', crystalQueenSwap: true, implemented: true, implementedSpace: true, crystalQueenImmune: true,
+    powerLabel: '🔮 Royal Switch',
+    powerDescription: "Instead of moving, your queen can swap places with any of your own knights, bishops, or rooks — instantly repositioning both pieces in one turn.",
     legendaryPowerLabel: '🗺 Coming Soon',
     legendaryPowerDescription: "The Crystal Queen's legendary power is still being designed. Check back soon!",
     spacePowerLabel: '🔮 Phantom Queen',

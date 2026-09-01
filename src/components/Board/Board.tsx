@@ -134,6 +134,17 @@ export default function Board({
 
   const isUnipopBuildingPath = unipopState !== null && unipopState.destination !== null
 
+  // Crystal Queen swap: identify which squares are swap targets (own n/b/r) vs normal moves
+  const selectedPiece = (() => {
+    if (!selectedSquare) return null
+    for (const row of board) for (const p of row) { if (p?.square === selectedSquare) return p }
+    return null
+  })()
+  const hasCQBaseActive = selectedPiece?.type === 'q' && (
+    (selectedPiece.color === 'w' ? playerCards : aiCards)
+      .some(c => CARD_POWERS[c.characterId]?.crystalQueenSwap)
+  )
+
   // ── Drag and drop ─────────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState<{
     from: ChessSquare; type: PieceSymbol; color: Color; cardImage?: string
@@ -284,6 +295,9 @@ export default function Board({
             const isCrystalQueenProtected = !crystalQueenVulnerable && crystalQueenSquare === square
             const isSpaceChessbeardFrozen = spaceChessbeardFrozenSquare === square
             const isSpaceHappyPawnTarget = isSpaceHappyPawnPlaceMode && validTargets.includes(square)
+            const isCrystalQueenSwapTarget = hasCQBaseActive && validTargets.includes(square)
+              && !!piece && piece.color === selectedPiece!.color
+              && (piece.type === 'n' || piece.type === 'b' || piece.type === 'r')
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined
@@ -308,6 +322,7 @@ export default function Board({
                 isChessbeardTarget={isChessbeardTarget}
                 isCrystalQueenVulnerable={isCrystalQueenVulnerable}
                 isCrystalQueenProtected={isCrystalQueenProtected}
+                isCrystalQueenSwapTarget={isCrystalQueenSwapTarget}
                 isSpaceChessbeardFrozen={isSpaceChessbeardFrozen}
                 isSpaceHappyPawnTarget={isSpaceHappyPawnTarget}
                 isDraggingFrom={dragging?.from === square}

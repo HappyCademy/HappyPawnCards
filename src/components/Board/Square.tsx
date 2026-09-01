@@ -17,6 +17,7 @@ interface Props {
   isChessbeardTarget: boolean
   isCrystalQueenVulnerable?: boolean
   isCrystalQueenProtected?: boolean
+  isCrystalQueenSwapTarget?: boolean
   isSpaceChessbeardFrozen?: boolean
   isSpaceHappyPawnTarget?: boolean
   isDraggingFrom?: boolean
@@ -35,7 +36,7 @@ export default function Square({
   square, piece, isLight, isSelected, isValidTarget,
   isLastMove, isKingInCheck, isUnipopPath, isUnipopCapture, isShootTarget,
   isChessbeardSelectable, isChessbeardTarget,
-  isCrystalQueenVulnerable = false, isCrystalQueenProtected = false,
+  isCrystalQueenVulnerable = false, isCrystalQueenProtected = false, isCrystalQueenSwapTarget = false,
   isSpaceChessbeardFrozen = false, isSpaceHappyPawnTarget = false,
   isDraggingFrom = false, isDragOver = false,
   isUnipopStepTarget = false, isRespawning = false,
@@ -80,9 +81,15 @@ export default function Square({
       )}
 
       {/* Valid capture ring */}
-      {isValidTarget && piece && !isShootTarget && !isChessbeardSelectable && !isChessbeardTarget && !isUnipopStepTarget && (
+      {isValidTarget && piece && !isShootTarget && !isChessbeardSelectable && !isChessbeardTarget && !isUnipopStepTarget && !isCrystalQueenSwapTarget && (
         <div className="absolute inset-0"
           style={{ boxShadow: 'inset 0 0 0 4px rgba(0,0,0,0.25)', borderRadius: '50%', margin: '-2px' }} />
+      )}
+
+      {/* Crystal Queen: swap target — teal ring */}
+      {isCrystalQueenSwapTarget && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ boxShadow: 'inset 0 0 0 3px rgba(34,211,238,0.85)', backgroundColor: 'rgba(34,211,238,0.12)' }} />
       )}
 
       {/* Robin Rook shoot target highlight */}
