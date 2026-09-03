@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { useChessGame, type GameMode, type GameStatus, type BoardPiece } from './hooks/useChessGame'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useChessGame, type GameMode, type GameStatus, type BoardPiece, type OnlineSyncState } from './hooks/useChessGame'
+import { useOnlineGame } from './hooks/useOnlineGame'
+import OnlineLobbyScreen from './components/Online/OnlineLobbyScreen'
 import type { Color, PieceSymbol } from 'chess.js'
 import Board from './components/Board/Board'
 import GameInfo from './components/GameInfo/GameInfo'
@@ -16,7 +18,7 @@ import { CARD_POWERS } from './data/powers'
 import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dialogue'
 import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 
-type AppScreen = 'mode' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'game'
+type AppScreen = 'mode' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-lobby' | 'game'
 
 interface PickedCards {
   player: CardVariant[]
@@ -99,6 +101,23 @@ export default function App() {
 
   const coinsAwardedRef = useRef(false)
 
+  // Online multiplayer — read ?join=gameId from URL on first load
+  const [pendingJoinId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('join')
+  })
+  const joinHandledRef = useRef(false)
+  const externalMoveRef = useRef<((state: OnlineSyncState) => void) | null>(null)
+  const onExternalMove = useCallback((state: OnlineSyncState) => {
+    externalMoveRef.current?.(state)
+  }, [])
+
+  const { onlineGameId, onlineDoc, myColor, createGame, joinGame, writeMyTurn, leaveGame } = useOnlineGame({
+    userId: auth.user?.uid ?? null,
+    displayName: auth.user?.email ?? null,
+    onExternalMove,
+  })
+
   function getCampaignOpponentCards(charId: string, chapter: CampaignChapter): CardVariant[] {
     if (charId === 'finale') {
       return [
@@ -121,8 +140,9 @@ export default function App() {
     return [spaceCard, basicCard]
   }
 
-  const playerCards = pickedCards?.player ?? []
-  const aiCards = pickedCards?.ai ?? []
+  const isOnline = gameMode === 'online'
+  const playerCards = isOnline ? (onlineDoc?.whiteCards ?? []) : (pickedCards?.player ?? [])
+  const aiCards = isOnline ? (onlineDoc?.blackCards ?? []) : (pickedCards?.ai ?? [])
 
   const {
     board, selectedSquare, validTargets, lastMove,
@@ -134,22 +154,58 @@ export default function App() {
     crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
     timeLeft, timedOut, resignedBy,
     onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace,
-    onLegendaryHappyPawnPromote, onNewGame, onUndo, onResign,
-  } = useChessGame({ playerCards, aiCards, gameMode })
+    onLegendaryHappyPawnPromote, onNewGame, onUndo, onResign, applyExternalTurn,
+  } = useChessGame({
+    playerCards,
+    aiCards,
+    gameMode,
+    onlineConfig: (isOnline && myColor) ? { myColor, onTurnComplete: writeMyTurn } : undefined,
+  })
+
+  // Keep external-move ref fresh so useOnlineGame can call it
+  useEffect(() => { externalMoveRef.current = applyExternalTurn }, [applyExternalTurn])
+
+  // Auto-navigate when arriving via a join link (?join=gameId)
+  useEffect(() => {
+    if (auth.loading || !pendingJoinId || joinHandledRef.current) return
+    joinHandledRef.current = true
+    setGameMode('online')
+    if (!auth.user) {
+      setPendingMode('online')
+      setScreen('sign-in')
+    } else {
+      setScreen('p1-selection')
+    }
+  }, [auth.loading])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-transition from lobby to game when opponent joins
+  useEffect(() => {
+    if (screen !== 'online-lobby') return
+    if (onlineDoc?.status === 'playing') setScreen('game')
+  }, [onlineDoc?.status, screen])
 
   const GATED_MODES: UiGameMode[] = ['campaign', 'vsPlayer']
 
   function handleModeSelect(mode: UiGameMode | 'sign-in') {
-    if (mode === 'online') return
     if (mode === 'sign-in') { setScreen('sign-in'); return }
     if (GATED_MODES.includes(mode) && !auth.user) {
       setPendingMode(mode)
       setScreen('sign-in')
       return
     }
+    if (mode === 'online' && !auth.user) {
+      setPendingMode('online')
+      setScreen('sign-in')
+      return
+    }
     if (mode === 'campaign') {
       setGameMode('vsComputer')
       setScreen('campaign')
+      return
+    }
+    if (mode === 'online') {
+      setGameMode('online')
+      setScreen('p1-selection')
       return
     }
     setGameMode(mode)
@@ -162,6 +218,9 @@ export default function App() {
     if (mode === 'campaign') {
       setGameMode('vsComputer')
       setScreen('campaign')
+    } else if (mode === 'online') {
+      setGameMode('online')
+      setScreen('p1-selection')
     } else if (mode) {
       setGameMode(mode as GameMode)
       setScreen('p1-selection')
@@ -198,6 +257,18 @@ export default function App() {
     if (gameMode === 'vsPlayer') {
       setPendingP1Cards(picks)
       setScreen('p2-selection')
+    } else if (gameMode === 'online') {
+      if (pendingJoinId) {
+        // P2: join the existing game
+        joinGame(pendingJoinId, picks).then(() => {
+          setScreen('game')
+        }).catch(err => console.error('joinGame failed:', err))
+      } else {
+        // P1: create a new game and wait in lobby
+        createGame(picks).then(() => {
+          setScreen('online-lobby')
+        }).catch(err => console.error('createGame failed:', err))
+      }
     } else if (pendingCampaignAi) {
       setPickedCards({ player: picks, ai: pendingCampaignAi })
       setScreen('game')
@@ -214,12 +285,20 @@ export default function App() {
     setScreen('game')
   }
 
+  function handleLeaveOnline() {
+    leaveGame()
+    setGameMode('vsComputer')
+    setScreen('mode')
+  }
+
   function handlePlayAgain() {
+    if (gameMode === 'online') { handleLeaveOnline(); return }
     onNewGame()
     setConfirmedTurn('w')
   }
 
   function handleChangeCards() {
+    if (gameMode === 'online') { handleLeaveOnline(); return }
     onNewGame()
     setPickedCards(null)
     setPendingP1Cards(null)
@@ -228,6 +307,7 @@ export default function App() {
   }
 
   function handleMainMenu() {
+    if (gameMode === 'online') { handleLeaveOnline(); return }
     const opponent = campaignOpponent
     const result = campaignLastResult
     onNewGame()
@@ -446,6 +526,15 @@ export default function App() {
     )
   }
 
+  if (screen === 'online-lobby' && onlineGameId) {
+    return (
+      <OnlineLobbyScreen
+        gameId={onlineGameId}
+        onCancel={() => { leaveGame(); setGameMode('vsComputer'); setScreen('mode') }}
+      />
+    )
+  }
+
   if (screen === 'p1-selection') {
     const isCampaign = campaignOpponent !== null
     const opponentName = isCampaign ? CAMPAIGN_CHARS[campaignOpponent!.idx] : null
@@ -458,6 +547,7 @@ export default function App() {
       <CardSelectionScreen
         onDone={handleP1Done}
         onBack={() => {
+          if (gameMode === 'online') { setGameMode('vsComputer'); setScreen('mode'); return }
           if (!isCampaign) { setScreen('mode'); return }
           if (campaignOpponent!.idx === 9) {
             setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null)
@@ -467,17 +557,19 @@ export default function App() {
           }
         }}
         playerLabel={
-          isCampaign
-            ? campaignOpponent!.idx === 9
-              ? 'Final Battle — Pick 1 card'
-              : campaignOpponent!.chapter === 1
-                ? `vs ${CHAR_NAMES[opponentName!]} — Pick 1 card`
-                : `vs ${CHAR_NAMES[opponentName!]} — Pick 2 cards`
-            : gameMode === 'vsPlayer'
-              ? 'Player 1 (White) — Pick 2 cards'
-              : 'Pick 2 cards to bring into battle'
+          gameMode === 'online'
+            ? (pendingJoinId ? '🌐 Join Game — Pick 2 cards' : '🌐 Create Game — Pick 2 cards')
+            : isCampaign
+              ? campaignOpponent!.idx === 9
+                ? 'Final Battle — Pick 1 card'
+                : campaignOpponent!.chapter === 1
+                  ? `vs ${CHAR_NAMES[opponentName!]} — Pick 1 card`
+                  : `vs ${CHAR_NAMES[opponentName!]} — Pick 2 cards`
+              : gameMode === 'vsPlayer'
+                ? 'Player 1 (White) — Pick 2 cards'
+                : 'Pick 2 cards to bring into battle'
         }
-        buttonLabel={gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
+        buttonLabel={gameMode === 'online' ? (pendingJoinId ? '⚔ Join Game' : '🔗 Create Link') : gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
         ownedCardIds={ownedCardIds}
         maxPicksOverride={isCampaign && campaignOpponent!.chapter === 1 ? 1 : undefined}
       />
@@ -505,11 +597,11 @@ export default function App() {
     crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
     timeLeft, timedOut, resignedBy, gameMode,
   }
-  const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace, onLegendaryHappyPawnPromote, onNewGame: handleMainMenu, onUndo, onResign }
+  const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace, onLegendaryHappyPawnPromote, onNewGame: handleMainMenu, onUndo, onResign, applyExternalTurn }
 
   const isVsPlayer = gameMode === 'vsPlayer'
-  const topLabel = isVsPlayer ? 'Player 2 (Black)' : 'AI (Black)'
-  const bottomLabel = isVsPlayer ? 'Player 1 (White)' : 'You (White)'
+  const topLabel = isVsPlayer ? 'Player 2 (Black)' : isOnline ? (myColor === 'b' ? 'You (Black)' : 'Opponent (Black)') : 'AI (Black)'
+  const bottomLabel = isVsPlayer ? 'Player 1 (White)' : isOnline ? (myColor === 'w' ? 'You (White)' : 'Opponent (White)') : 'You (White)'
 
   const { byWhite, byBlack } = computeCaptured(board)
   const whitePoints = byWhite.reduce((s, t) => s + CAPTURE_VALUES[t], 0)
@@ -533,7 +625,7 @@ export default function App() {
           }}
         />
         <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '11px', letterSpacing: '0.08em' }}>
-          {isVsPlayer ? 'VS Player' : campaignOpponent !== null ? 'Campaign' : 'VS Computer'}
+          {isVsPlayer ? 'VS Player' : isOnline ? 'Online' : campaignOpponent !== null ? 'Campaign' : 'VS Computer'}
         </p>
       </header>
 
@@ -606,8 +698,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Pass-the-device handoff screen (vsPlayer only) */}
-      {gameMode === 'vsPlayer' && status === 'playing' && turn !== confirmedTurn && (
+      {/* Pass-the-device handoff screen (vsPlayer only, not online) */}
+      {gameMode === 'vsPlayer' && !isOnline && status === 'playing' && turn !== confirmedTurn && (
         <HandoffScreen
           player={turn === 'w' ? 'Player 1' : 'Player 2'}
           color={turn === 'w' ? 'white' : 'black'}
@@ -622,6 +714,7 @@ export default function App() {
           timedOut={timedOut}
           resignedBy={resignedBy}
           gameMode={gameMode}
+          myColor={myColor}
           isCampaign={campaignOpponent !== null}
           onPlayAgain={handlePlayAgain}
           onChangeCards={handleChangeCards}
@@ -840,20 +933,24 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, isCampaign, onPlayAgain, onChangeCards, onMainMenu }: {
+function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, onPlayAgain, onChangeCards, onMainMenu }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
   gameMode: GameMode
+  myColor: 'w' | 'b' | null
   isCampaign: boolean
   onPlayAgain: () => void
   onChangeCards: () => void
   onMainMenu: () => void
 }) {
   const isVsPlayer = gameMode === 'vsPlayer'
+  const isOnline = gameMode === 'online'
   const isDraw = status === 'draw'
   const whiteWins = status === 'white-wins'
-  const playerWins = isVsPlayer ? null : whiteWins
+  const playerWins = isOnline
+    ? (myColor === 'w' ? whiteWins : !whiteWins)
+    : isVsPlayer ? null : whiteWins
 
   // Determine outcome type: 'victory' | 'defeat' | 'draw'
   const outcomeType: 'victory' | 'defeat' | 'draw' = isDraw ? 'draw'
@@ -866,13 +963,19 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, isCampaign, o
   if (isDraw) {
     headline = 'Draw'; subtitle = 'The game is drawn'
   } else if (resignedBy !== null) {
-    if (isVsPlayer) {
+    if (isOnline) {
+      headline = playerWins ? 'Victory!' : 'Defeat'
+      subtitle = (resignedBy === myColor) ? 'You resigned' : 'Opponent resigned'
+    } else if (isVsPlayer) {
       headline = resignedBy === 'w' ? 'Victory!' : 'Defeat'
       subtitle = `Player ${resignedBy === 'w' ? '1' : '2'} resigned`
     } else {
       headline = resignedBy === 'w' ? 'Defeat' : 'Victory!'
       subtitle = resignedBy === 'w' ? 'You resigned' : 'AI resigned'
     }
+  } else if (isOnline) {
+    headline = playerWins ? 'Victory!' : 'Defeat'
+    subtitle = playerWins ? "Opponent's king captured!" : 'Your king was captured!'
   } else if (isVsPlayer) {
     headline = whiteWins ? 'Victory!' : 'Defeat'
     subtitle = timedOut
@@ -885,7 +988,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, isCampaign, o
       : playerWins ? "Opponent's king captured!" : 'Your king was captured!'
   }
 
-  const robiSrc = !isVsPlayer && !isDraw
+  const robiSrc = !isVsPlayer && !isOnline && !isDraw
     ? (playerWins ? '/images/robi/robi-lost.png' : '/images/robi/robi-win.png')
     : null
 
@@ -1004,36 +1107,60 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, isCampaign, o
 
         {/* Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-          <button
-            onClick={onPlayAgain}
-            style={{
-              padding: '14px', borderRadius: '50px', cursor: 'pointer',
-              fontFamily: D, fontWeight: 700, fontSize: '14px', letterSpacing: '0.1em',
-              background: isVictory
-                ? 'linear-gradient(135deg, #c9a227 0%, #f0c040 50%, #c9a227 100%)'
-                : 'linear-gradient(160deg, #3a1060 0%, #1a0d36 100%)',
-              border: `2px solid ${isVictory ? '#f0c040' : 'rgba(201,162,39,0.4)'}`,
-              color: isVictory ? '#0d0a1a' : 'var(--gold-bright)',
-              boxShadow: isVictory
-                ? '0 4px 24px rgba(201,162,39,0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
-                : '0 4px 16px rgba(201,162,39,0.2)',
-              textTransform: 'uppercase',
-            }}
-          >
-            {isVictory ? '♛ Play Again' : '↺ Try Again'}
-          </button>
-          <button
-            onClick={onChangeCards}
-            style={{
-              padding: '11px', borderRadius: '50px', cursor: 'pointer',
-              fontFamily: D, fontWeight: 600, fontSize: '12px', letterSpacing: '0.06em',
-              background: 'rgba(13,10,26,0.6)',
-              border: `1.5px solid ${borderColor}66`,
-              color: 'var(--ivory-dim)', textTransform: 'uppercase',
-            }}
-          >
-            Change Cards
-          </button>
+          {!isOnline && (
+            <button
+              onClick={onPlayAgain}
+              style={{
+                padding: '14px', borderRadius: '50px', cursor: 'pointer',
+                fontFamily: D, fontWeight: 700, fontSize: '14px', letterSpacing: '0.1em',
+                background: isVictory
+                  ? 'linear-gradient(135deg, #c9a227 0%, #f0c040 50%, #c9a227 100%)'
+                  : 'linear-gradient(160deg, #3a1060 0%, #1a0d36 100%)',
+                border: `2px solid ${isVictory ? '#f0c040' : 'rgba(201,162,39,0.4)'}`,
+                color: isVictory ? '#0d0a1a' : 'var(--gold-bright)',
+                boxShadow: isVictory
+                  ? '0 4px 24px rgba(201,162,39,0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
+                  : '0 4px 16px rgba(201,162,39,0.2)',
+                textTransform: 'uppercase',
+              }}
+            >
+              {isVictory ? '♛ Play Again' : '↺ Try Again'}
+            </button>
+          )}
+          {isOnline && (
+            <button
+              onClick={onMainMenu}
+              style={{
+                padding: '14px', borderRadius: '50px', cursor: 'pointer',
+                fontFamily: D, fontWeight: 700, fontSize: '14px', letterSpacing: '0.1em',
+                background: isVictory
+                  ? 'linear-gradient(135deg, #c9a227 0%, #f0c040 50%, #c9a227 100%)'
+                  : 'linear-gradient(160deg, #3a1060 0%, #1a0d36 100%)',
+                border: `2px solid ${isVictory ? '#f0c040' : 'rgba(201,162,39,0.4)'}`,
+                color: isVictory ? '#0d0a1a' : 'var(--gold-bright)',
+                boxShadow: isVictory
+                  ? '0 4px 24px rgba(201,162,39,0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
+                  : '0 4px 16px rgba(201,162,39,0.2)',
+                textTransform: 'uppercase',
+              }}
+            >
+              🌐 Play Again
+            </button>
+          )}
+          {!isOnline && (
+            <button
+              onClick={onChangeCards}
+              style={{
+                padding: '11px', borderRadius: '50px', cursor: 'pointer',
+                fontFamily: D, fontWeight: 600, fontSize: '12px', letterSpacing: '0.06em',
+                background: 'rgba(13,10,26,0.6)',
+                border: `1.5px solid ${borderColor}66`,
+                color: 'var(--ivory-dim)', textTransform: 'uppercase',
+              }}
+            >
+              Change Cards
+            </button>
+          )}
           <button
             onClick={onMainMenu}
             style={{

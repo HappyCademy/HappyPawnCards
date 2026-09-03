@@ -29,6 +29,15 @@ import { tryAIPowerMove } from '../engine/aipowers'
 
 export type GameStatus = 'playing' | 'white-wins' | 'black-wins' | 'draw'
 
+export interface OnlineSyncState {
+  fen: string
+  moveHistory: string[]
+  lastMove: { from: string; to: string } | null
+  crystalQueenVulnerable: boolean
+  spaceChessbeardFrozenSquare: string | null
+  status: GameStatus
+}
+
 export interface BoardPiece {
   type: PieceSymbol
   color: Color
@@ -79,6 +88,7 @@ export interface GameActions {
   onNewGame: () => void
   onUndo: () => void
   onResign: () => void
+  applyExternalTurn: (state: OnlineSyncState) => void
 }
 
 // ── Pure helpers (outside hook) ────────────────────────────────────────────────
@@ -195,15 +205,16 @@ function replacePieceAt(chess: Chess, sq: Square, piece: PieceSymbol): Chess {
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
-export type GameMode = 'vsComputer' | 'vsPlayer'
+export type GameMode = 'vsComputer' | 'vsPlayer' | 'online'
 
 interface Options {
   playerCards: CardVariant[]
   aiCards?: CardVariant[]
   gameMode?: GameMode
+  onlineConfig?: { myColor: 'w' | 'b'; onTurnComplete: (state: OnlineSyncState) => void }
 }
 
-export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer' }: Options): GameState & GameActions {
+export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig }: Options): GameState & GameActions {
   const chessRef = useRef(new Chess())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validTargets, setValidTargets] = useState<Square[]>([])
@@ -237,12 +248,14 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const prevPieceCountRef = useRef(32)
   const prevStatusRef = useRef<GameStatus>('playing')
   const [tick, setTick] = useState(0)
+  const onTurnCompleteRef = useRef(onlineConfig?.onTurnComplete)
+  useEffect(() => { onTurnCompleteRef.current = onlineConfig?.onTurnComplete }, [onlineConfig?.onTurnComplete])
   const bump = useCallback(() => setTick(t => t + 1), [])
 
   const chess = chessRef.current
 
-  // In vsPlayer mode, powers come from whichever player's turn it currently is
-  const currentCards = gameMode === 'vsPlayer'
+  // In vsPlayer/online mode, powers come from whichever player's turn it currently is
+  const currentCards = (gameMode === 'vsPlayer' || gameMode === 'online')
     ? (chess.turn() === 'w' ? playerCards : aiCards)
     : playerCards
   const hasLegendaryUnipop = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.unipopLPath)
@@ -387,6 +400,31 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     return () => window.removeEventListener('keydown', onKey)
   }, [unipopBonusSquare])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Online sync: after every bump, if it's the opponent's turn, write state to Firestore
+  useEffect(() => {
+    if (!onlineConfig || !tick) return
+    if (chessRef.current.turn() === onlineConfig.myColor) return  // still my turn
+    onTurnCompleteRef.current?.({
+      fen: chessRef.current.fen(),
+      moveHistory: [...moveHistoryRef.current],
+      lastMove,
+      crystalQueenVulnerable,
+      spaceChessbeardFrozenSquare: spaceChessbeardFrozenSquare as string | null,
+      status: getStatus(chessRef.current),
+    })
+  }, [tick])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applyExternalTurn(state: OnlineSyncState) {
+    chessRef.current = new Chess(state.fen, { skipValidation: true })
+    setCrystalQueenVulnerable(state.crystalQueenVulnerable)
+    setSpaceChessbeardFrozenSquare(state.spaceChessbeardFrozenSquare as Square | null)
+    moveHistoryRef.current = [...state.moveHistory]
+    fenHistoryRef.current = []
+    setLastMove(state.lastMove ? state.lastMove as { from: Square; to: Square } : null)
+    clearSelection()
+    bump()
+  }
+
   function triggerFireTrail(squares: Square[]) {
     setFireTrailSquares(squares)
     setTimeout(() => setFireTrailSquares([]), 900 + squares.length * 150 + 200)
@@ -414,6 +452,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
   const onSquareClick = useCallback((square: Square) => {
     if (getStatus(chess) !== 'playing' || resignedBy !== null) return
+    if (onlineConfig && chess.turn() !== onlineConfig.myColor) return
 
     // ── Legendary Happy Pawn: waiting for promotion choice ────────────────────
     if (legendaryHappyPawnPromoteSquare) return
@@ -1004,5 +1043,6 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     onNewGame,
     onUndo,
     onResign,
+    applyExternalTurn,
   }
 }

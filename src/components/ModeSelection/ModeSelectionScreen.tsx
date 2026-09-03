@@ -147,10 +147,10 @@ export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, u
           icon="🌐"
           title="Online"
           description="Play with a friend online"
-          color="#8a7560"
-          glow="rgba(138,117,96,0.2)"
-          comingSoon
-          onClick={() => {}}
+          color="#64a0e0"
+          glow="rgba(100,160,224,0.35)"
+          requiresAuth={!isSignedIn}
+          onClick={() => onSelect('online')}
         />
       </div>
 
