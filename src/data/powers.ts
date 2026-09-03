@@ -36,11 +36,11 @@ export const CARD_POWERS: Record<string, CardPowerDef> = {
     spacePowerDescription: 'Instead of moving, you may place a pawn from off the board onto any empty square on the first 4 ranks.',
   },
   'unipop': {
-    pieceSymbol: 'n', unipopLPath: true, implemented: true, implementedSpace: true,
+    pieceSymbol: 'n', unipopLPath: true, implemented: true, implementedLegendary: true, implementedSpace: true,
     powerLabel: '🦄 L-Path',
     powerDescription: 'Your knight traces its L-move one step at a time: pick 3 directions to build the path. Every enemy piece it passes through is destroyed!',
-    legendaryPowerLabel: '🎤 Coming Soon',
-    legendaryPowerDescription: "Unipop's legendary power is still being designed. Check back soon!",
+    legendaryPowerLabel: '🌀 Phase Jump',
+    legendaryPowerDescription: "Your knight wraps around the left and right edges of the board — move off one side and appear on the other! Up and down edges are still walls.",
     spacePowerLabel: '🦄 Double Jump',
     spacePowerDescription: "Your knight can leap twice in a single turn — make one L-move, then optionally jump again from the new landing square!",
   },
@@ -53,7 +53,7 @@ export const CARD_POWERS: Record<string, CardPowerDef> = {
     spacePowerDescription: 'Your pieces can use the same square if you can balance them on top of each other. If the square is captured, all pieces on it get captured.',
   },
   'pirate-queen': {
-    pieceSymbol: 'q', pirateQueenBounce: true, implemented: false, implementedLegendary: true,
+    pieceSymbol: 'q', pirateQueenBounce: true, implemented: true, implementedLegendary: true,
     powerLabel: '🌊 Bouncing Queen',
     powerDescription: 'Your queen bounces off the edges of the board like a billiard ball, reaching squares no normal queen can access!',
   },

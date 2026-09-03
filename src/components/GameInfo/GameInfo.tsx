@@ -390,23 +390,43 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
         )
       })()}
 
-      {/* ── Show piece art toggle ───────────────────────────────────────────── */}
+      {/* ── Show piece art toggle switch ────────────────────────────────────── */}
       {onToggleSpecialPieces && (
-        <button
+        <div
           onClick={onToggleSpecialPieces}
           style={{
-            width: '100%', padding: '8px', borderRadius: '12px',
-            border: `1px solid ${showSpecialPieces ? 'rgba(192,132,252,0.4)' : 'rgba(201,162,39,0.12)'}`,
-            background: showSpecialPieces ? 'rgba(192,132,252,0.08)' : 'transparent',
-            color: showSpecialPieces ? '#c084fc' : 'rgba(138,117,96,0.6)',
-            fontFamily: B, fontWeight: 700, fontSize: '11px', cursor: 'pointer',
-            letterSpacing: '0.04em', transition: 'all 0.15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '8px 12px', borderRadius: '12px', cursor: 'pointer',
+            border: `1px solid ${showSpecialPieces ? 'rgba(192,132,252,0.25)' : 'rgba(201,162,39,0.1)'}`,
+            background: showSpecialPieces ? 'rgba(192,132,252,0.06)' : 'transparent',
+            transition: 'all 0.2s',
           }}
-          onMouseEnter={e => { if (!showSpecialPieces) (e.currentTarget as HTMLButtonElement).style.color = 'var(--ivory-dim)' }}
-          onMouseLeave={e => { if (!showSpecialPieces) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.6)' }}
         >
-          {showSpecialPieces ? '★ Hide piece art' : '☆ Show piece art'}
-        </button>
+          <span style={{
+            fontFamily: B, fontWeight: 700, fontSize: '11px', letterSpacing: '0.04em',
+            color: showSpecialPieces ? '#c084fc' : 'rgba(138,117,96,0.6)',
+            transition: 'color 0.2s',
+            userSelect: 'none',
+          }}>
+            ★ Piece art
+          </span>
+          <div style={{
+            width: '36px', height: '20px', borderRadius: '10px',
+            background: showSpecialPieces ? '#c084fc' : 'rgba(255,255,255,0.1)',
+            position: 'relative', flexShrink: 0,
+            transition: 'background 0.2s',
+            boxShadow: showSpecialPieces ? '0 0 8px rgba(192,132,252,0.4)' : 'none',
+          }}>
+            <div style={{
+              position: 'absolute', top: '2px',
+              left: showSpecialPieces ? '18px' : '2px',
+              width: '16px', height: '16px', borderRadius: '50%',
+              background: 'white',
+              transition: 'left 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+            }} />
+          </div>
+        </div>
       )}
 
       {/* ── Piece style ────────────────────────────────────────────────────── */}

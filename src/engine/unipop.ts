@@ -116,6 +116,30 @@ export function applyUnipopMove(chess: Chess, knightSquare: Square, pathSquares:
   }
 }
 
+// Legendary Unipop: regular knight move but left/right edges wrap around.
+// Up/down edges are hard walls (no vertical wrapping).
+export function getLegendaryUnipopTargets(chess: Chess, square: Square): Square[] {
+  const piece = chess.get(square)
+  if (!piece || piece.type !== 'n') return []
+
+  const file = square.charCodeAt(0) - 97
+  const rank = parseInt(square[1]) - 1
+  const color = piece.color
+  const targets: Square[] = []
+
+  for (const [df, dr] of [[1,2],[1,-2],[-1,2],[-1,-2],[2,1],[2,-1],[-2,1],[-2,-1]] as [number,number][]) {
+    let nf = (file + df + 8) % 8   // wrap horizontally
+    const nr = rank + dr
+    if (nr < 0 || nr > 7) continue  // no vertical wrap
+    const sq = (String.fromCharCode(97 + nf) + (nr + 1)) as Square
+    const blocker = chess.get(sq)
+    if (blocker && blocker.color === color) continue
+    targets.push(sq)
+  }
+
+  return targets
+}
+
 function setPieceInFen(fen: string, square: Square, piece: string | null): string {
   const [position, ...rest] = fen.split(' ')
   const file = square.charCodeAt(0) - 97

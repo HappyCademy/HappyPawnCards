@@ -8,10 +8,11 @@
 import { Chess } from 'chess.js'
 import type { Square, PieceSymbol } from 'chess.js'
 import { applyPseudoLegalMove } from './pseudolegal'
-import { applyUnipopMove, getAllKnightDestinations, getPathCorners, getPathSquares } from './unipop'
+import { applyUnipopMove, getAllKnightDestinations, getPathCorners, getPathSquares, getLegendaryUnipopTargets } from './unipop'
 import { getRookShootTargets, applyRookShoot } from './robinrook'
 import { getHappyPawnTargets, applyHappyPawnPush } from './happypawn'
 import { getPuzzlePeteBishopTargets } from './puzzlepete'
+import { getPirateQueenTargets } from './piratequeen'
 import {
   getChessbeardSelectablePieces, getChessbeardTargets, applyChessbeardSacrifice,
 } from './chessbeard'
@@ -36,11 +37,16 @@ export function tryAIPowerMove(chess: Chess, aiCards: CardVariant[]): AIPowerMov
   const has = (key: string) =>
     aiCards.some(c => Boolean((CARD_POWERS[c.characterId] as unknown as Record<string, unknown>)?.[key]))
 
-  if (has('robinRookStay')     && Math.random() < 0.60) { const m = tryRobinRook(chess);  if (m) return m }
-  if (has('puzzlePeteBounce')  && Math.random() < 0.60) { const m = tryPuzzlePete(chess); if (m) return m }
-  if (has('unipopLPath')       && Math.random() < 0.55) { const m = tryUnipop(chess);     if (m) return m }
-  if (has('happyPawnPush')     && Math.random() < 0.45) { const m = tryHappyPawn(chess);  if (m) return m }
-  if (has('chessbeardSacrifice') && Math.random() < 0.20) { const m = tryChessbeard(chess); if (m) return m }
+  if (has('robinRookStay')       && Math.random() < 0.60) { const m = tryRobinRook(chess);    if (m) return m }
+  if (has('puzzlePeteBounce')    && Math.random() < 0.60) { const m = tryPuzzlePete(chess);   if (m) return m }
+  if (has('pirateQueenBounce')   && Math.random() < 0.60) { const m = tryPirateQueen(chess);  if (m) return m }
+  const isLegendaryUnipop = aiCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.unipopLPath)
+  if (has('unipopLPath') && Math.random() < 0.55) {
+    const m = isLegendaryUnipop ? tryLegendaryUnipop(chess) : tryUnipop(chess)
+    if (m) return m
+  }
+  if (has('happyPawnPush')       && Math.random() < 0.45) { const m = tryHappyPawn(chess);    if (m) return m }
+  if (has('chessbeardSacrifice') && Math.random() < 0.20) { const m = tryChessbeard(chess);   if (m) return m }
 
   return null
 }
@@ -90,6 +96,31 @@ function tryPuzzlePete(chess: Chess): AIPowerMove | null {
   }
 }
 
+// ── Pirate Queen: bouncing queen, same logic as Puzzle Pete but for the queen ──
+
+function tryPirateQueen(chess: Chess): AIPowerMove | null {
+  let best: { queen: Square; target: Square; value: number } | null = null
+
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.type !== 'q' || p.color !== 'b') continue
+      for (const target of getPirateQueenTargets(chess, p.square)) {
+        const enemy = chess.get(target)
+        if (!enemy || enemy.color !== 'w') continue
+        const val = VALUES[enemy.type]
+        if (!best || val > best.value) best = { queen: p.square, target, value: val }
+      }
+    }
+  }
+
+  if (!best || best.value < 300) return null
+  return {
+    newChess: applyPseudoLegalMove(chess, best.queen, best.target),
+    from: best.queen,
+    to: best.target,
+  }
+}
+
 // ── Unipop: enumerate all L-paths, pick the one that captures the most ────────
 
 function tryUnipop(chess: Chess): AIPowerMove | null {
@@ -121,6 +152,31 @@ function tryUnipop(chess: Chess): AIPowerMove | null {
 
   return {
     newChess: applyUnipopMove(chess, best.from, best.pathSquares),
+    from: best.from,
+    to: best.to,
+  }
+}
+
+// ── Legendary Unipop: regular knight jump with left/right edge wrapping ───────
+
+function tryLegendaryUnipop(chess: Chess): AIPowerMove | null {
+  let best: { from: Square; to: Square; value: number } | null = null
+
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.type !== 'n' || p.color !== 'b') continue
+      for (const target of getLegendaryUnipopTargets(chess, p.square)) {
+        const enemy = chess.get(target)
+        if (!enemy || enemy.color !== 'w') continue
+        const val = VALUES[enemy.type]
+        if (!best || val > best.value) best = { from: p.square, to: target, value: val }
+      }
+    }
+  }
+
+  if (!best || best.value < 300) return null
+  return {
+    newChess: applyPseudoLegalMove(chess, best.from, best.to),
     from: best.from,
     to: best.to,
   }

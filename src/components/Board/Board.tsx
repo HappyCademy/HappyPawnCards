@@ -127,10 +127,28 @@ export default function Board({
     }
     return map
   }
+  function buildPieceChibiMap(cards: CardVariant[]): Partial<Record<PieceSymbol, string>> {
+    const map: Partial<Record<PieceSymbol, string>> = {}
+    for (const card of cards) {
+      const power = CARD_POWERS[card.characterId]
+      if (!power) continue
+      const isActive = power.implemented
+        || (card.rarity === 'legendary' && power.implementedLegendary)
+        || (card.rarity === 'space' && power.implementedSpace)
+      if (!isActive) continue
+      const sym: PieceSymbol | undefined = card.characterId === 'general-gambit' ? 'p' : power.pieceSymbol
+      if (!sym) continue
+      map[sym] = `/images/characters/${card.characterId}/${card.rarity}-chibi.png`
+    }
+    return map
+  }
+
   const whitePieceImageMap = buildPieceImageMap(playerCards)
   const blackPieceImageMap = buildPieceImageMap(aiCards)
   const whitePieceCardMap = buildPieceCardMap(playerCards)
   const blackPieceCardMap = buildPieceCardMap(aiCards)
+  const whitePieceChibiMap = buildPieceChibiMap(playerCards)
+  const blackPieceChibiMap = buildPieceChibiMap(aiCards)
 
   const isUnipopBuildingPath = unipopState !== null && unipopState.destination !== null
 
@@ -301,8 +319,8 @@ export default function Board({
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined
-            const specialPieceColor = cardImage
-              ? (piece!.color as 'w' | 'b')
+            const chibiImage = piece
+              ? (piece.color === 'w' ? whitePieceChibiMap[piece.type] : blackPieceChibiMap[piece.type])
               : undefined
 
             return (
@@ -333,8 +351,8 @@ export default function Board({
                 rank={colIdx === 0 ? rank : undefined}
                 file={rowIdx === 7 ? file : undefined}
                 cardImage={cardImage}
+                chibiImage={chibiImage}
                 showSpecial={showSpecialPieces}
-                specialPieceColor={specialPieceColor}
               />
             )
           })

@@ -11,6 +11,7 @@ import {
   getUnipopTargets,
   getPathSquares,
   applyUnipopMove,
+  getLegendaryUnipopTargets,
 } from '../engine/unipop'
 import { getRookShootTargets, getAllDirShootTargets, applyRookShoot } from '../engine/robinrook'
 import { getPirateQueenTargets } from '../engine/piratequeen'
@@ -244,8 +245,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const currentCards = gameMode === 'vsPlayer'
     ? (chess.turn() === 'w' ? playerCards : aiCards)
     : playerCards
+  const hasLegendaryUnipop = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.unipopLPath)
   const hasSpaceUnipop   = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.unipopLPath)
-  const hasUnipop        = !hasSpaceUnipop && currentCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
+  const hasUnipop        = !hasSpaceUnipop && !hasLegendaryUnipop && currentCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
   const hasSpaceRobinRook = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.robinRookStay)
   const hasRobinRook     = currentCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
   const hasPuzzlePete    = currentCards.some(c => CARD_POWERS[c.characterId]?.puzzlePeteBounce)
@@ -648,13 +650,15 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare,
       isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
       legendaryHappyPawnPromoteSquare,
-      hasUnipop, hasSpaceUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
+      hasUnipop, hasSpaceUnipop, hasLegendaryUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
       hasCrystalQueenBase, hasBlackKing, hasKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
       hasLegendaryHappyPawn, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
     setSelectedSquare(square)
-    if (hasSpaceUnipop && piece.type === 'n') {
+    if (hasLegendaryUnipop && piece.type === 'n') {
+      setValidTargets(applyImmunityFilter(getLegendaryUnipopTargets(chess, square), piece.color))
+    } else if (hasSpaceUnipop && piece.type === 'n') {
       setValidTargets(applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color))
     } else if (hasUnipop && piece.type === 'n') {
       const state: UnipopState = { knightSquare: square, destination: null, path: [] }

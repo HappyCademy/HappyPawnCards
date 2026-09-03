@@ -44,6 +44,11 @@ const RARITY_FULLBODY: Record<Rarity, string> = {
   space:     'space-fullbody',
 }
 
+// Characters missing space assets — fall back to closest available variant
+const SPACE_FULLBODY_FALLBACK: Partial<Record<string, string>> = {
+  'chessbeard': 'legendary-fullbody',
+}
+
 const CHARACTERS: { id: string; name: string }[] = [
   { id: 'happy-pawn',     name: 'Happy Pawn'     },
   { id: 'chessbeard',     name: 'Chessbeard'     },
@@ -65,7 +70,7 @@ export const ALL_CARDS: CardVariant[] = CHARACTERS.flatMap(char =>
       characterId: char.id,
       name: char.name,
       rarity: rarity.key,
-      image: `/images/characters/${char.id}/${RARITY_FULLBODY[rarity.key]}.png`,
+      image: `/images/characters/${char.id}/${rarity.key === 'space' && SPACE_FULLBODY_FALLBACK[char.id] ? SPACE_FULLBODY_FALLBACK[char.id] : RARITY_FULLBODY[rarity.key]}.png`,
     }))
 )
 
