@@ -239,7 +239,10 @@ export default function Board({
         onSquareClick(pending.sq)
         // Some powers require deliberate multi-step clicks — drag just selects the piece
         const colorCards = p.color === 'w' ? playerCards : aiCards
-        const isUnipopKnight = p.type === 'n' && colorCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
+        // Base Unipop needs 3 deliberate clicks (piece → dest → corner); legendary/space are instant jumps and support drag
+        const isUnipopKnight = p.type === 'n' && colorCards.some(c =>
+          CARD_POWERS[c.characterId]?.unipopLPath && c.rarity !== 'legendary' && c.rarity !== 'space'
+        )
         const isRobinRook   = p.type === 'r' && colorCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
         const inSpecialMode = isChessbeardSelectMode || chessbeardSacrificeSquare !== null || isSpaceChessbeardFreezeMode
         if (toSq && toSq !== pending.sq && !isUnipopKnight && !isRobinRook && !inSpecialMode) {
