@@ -44,11 +44,14 @@ function pickTestHands(perPlayer: number): { player: CardVariant[]; ai: CardVari
   const aiCards: CardVariant[] = []
   const playerCharIds = new Set<string>()
   const aiCharIds = new Set<string>()
+  const playerPieceSyms = new Set<string>()
+  const aiPieceSyms = new Set<string>()
   for (const card of shuffled) {
-    if (playerCards.length < perPlayer && !playerCharIds.has(card.characterId)) {
-      playerCards.push(card); playerCharIds.add(card.characterId)
-    } else if (aiCards.length < perPlayer && !aiCharIds.has(card.characterId)) {
-      aiCards.push(card); aiCharIds.add(card.characterId)
+    const sym = CARD_POWERS[card.characterId]?.pieceSymbol
+    if (playerCards.length < perPlayer && !playerCharIds.has(card.characterId) && (!sym || !playerPieceSyms.has(sym))) {
+      playerCards.push(card); playerCharIds.add(card.characterId); if (sym) playerPieceSyms.add(sym)
+    } else if (aiCards.length < perPlayer && !aiCharIds.has(card.characterId) && (!sym || !aiPieceSyms.has(sym))) {
+      aiCards.push(card); aiCharIds.add(card.characterId); if (sym) aiPieceSyms.add(sym)
     }
     if (playerCards.length >= perPlayer && aiCards.length >= perPlayer) break
   }
