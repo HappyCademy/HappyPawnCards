@@ -127,8 +127,8 @@ export default function Board({
     }
     return map
   }
-  function buildPieceChibiMap(cards: CardVariant[]): Partial<Record<PieceSymbol, string>> {
-    const map: Partial<Record<PieceSymbol, string>> = {}
+  function buildPieceChibiMap(cards: CardVariant[]): Partial<Record<PieceSymbol, string[]>> {
+    const map: Partial<Record<PieceSymbol, string[]>> = {}
     for (const card of cards) {
       const power = CARD_POWERS[card.characterId]
       if (!power) continue
@@ -138,7 +138,9 @@ export default function Board({
       if (!isActive) continue
       const sym: PieceSymbol | undefined = card.characterId === 'general-gambit' ? 'p' : power.pieceSymbol
       if (!sym) continue
-      map[sym] = `/images/characters/${card.characterId}/${card.rarity}-chibi.png`
+      const url = `/images/characters/${card.characterId}/${card.rarity}-chibi.png`
+      if (map[sym]) map[sym]!.push(url)
+      else map[sym] = [url]
     }
     return map
   }
@@ -322,7 +324,7 @@ export default function Board({
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined
-            const chibiImage = piece
+            const chibiImages = piece
               ? (piece.color === 'w' ? whitePieceChibiMap[piece.type] : blackPieceChibiMap[piece.type])
               : undefined
 
@@ -354,7 +356,7 @@ export default function Board({
                 rank={colIdx === 0 ? rank : undefined}
                 file={rowIdx === 7 ? file : undefined}
                 cardImage={cardImage}
-                chibiImage={chibiImage}
+                chibiImages={chibiImages}
                 showSpecial={showSpecialPieces}
               />
             )

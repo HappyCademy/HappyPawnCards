@@ -28,7 +28,7 @@ interface Props {
   rank?: string
   file?: string
   cardImage?: string
-  chibiImage?: string
+  chibiImages?: string[]
   showSpecial?: boolean
 }
 
@@ -40,7 +40,7 @@ export default function Square({
   isSpaceChessbeardFrozen = false, isSpaceHappyPawnTarget = false,
   isDraggingFrom = false, isDragOver = false,
   isUnipopStepTarget = false, isRespawning = false,
-  showCoords, rank, file, cardImage, chibiImage, showSpecial = false,
+  showCoords, rank, file, cardImage, chibiImages, showSpecial = false,
 }: Props) {
   let bg = isLight ? '#f0d9b5' : '#b58863'
 
@@ -156,14 +156,15 @@ export default function Square({
         />
       )}
 
-      {/* Special piece chibi pip — top-right corner */}
-      {chibiImage && !showSpecial && (
+      {/* Special piece chibi pips — up to 2, top-right then top-left */}
+      {chibiImages && !showSpecial && chibiImages.map((src, i) => (
         <img
-          src={chibiImage}
+          key={i}
+          src={src}
           alt=""
           className="absolute pointer-events-none"
           style={{
-            top: '1px', right: '1px',
+            top: '1px', [i === 0 ? 'right' : 'left']: '1px',
             width: '22px', height: '22px',
             borderRadius: '50%',
             objectFit: 'cover',
@@ -171,7 +172,7 @@ export default function Square({
             filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.7))',
           }}
         />
-      )}
+      ))}
 
       {piece && (
         <div style={{
