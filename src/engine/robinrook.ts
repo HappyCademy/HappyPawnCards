@@ -51,6 +51,38 @@ export function applyRookShoot(chess: Chess, targetSquare: Square): Chess {
   }
 }
 
+/** Cannon-style rook: slides normally, but can jump over exactly one piece to reach squares beyond it. */
+export function getRobinRookLegendaryTargets(chess: Chess, square: Square): Square[] {
+  const piece = chess.get(square)
+  if (!piece || piece.type !== 'r') return []
+  const file = square.charCodeAt(0) - 97
+  const rank = parseInt(square[1]) - 1
+  const color = piece.color
+  const targets: Square[] = []
+
+  for (const [df, dr] of DIRS) {
+    let f = file + df, r = rank + dr
+    let jumped = false
+    while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
+      const sq = (String.fromCharCode(97 + f) + (r + 1)) as Square
+      const occupant = chess.get(sq)
+      if (occupant) {
+        if (!jumped) {
+          if (occupant.color !== color) targets.push(sq) // normal capture before jump
+          jumped = true                                   // can continue past this piece
+        } else {
+          if (occupant.color !== color) targets.push(sq) // capture after jump
+          break
+        }
+      } else {
+        targets.push(sq)
+      }
+      f += df; r += dr
+    }
+  }
+  return targets
+}
+
 function clearSquareInFen(fen: string, square: Square): string {
   const [position, ...rest] = fen.split(' ')
   const file = square.charCodeAt(0) - 97

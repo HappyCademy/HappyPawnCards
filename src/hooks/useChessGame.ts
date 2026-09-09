@@ -13,7 +13,7 @@ import {
   applyUnipopMove,
   getLegendaryUnipopTargets,
 } from '../engine/unipop'
-import { getRookShootTargets, getAllDirShootTargets, applyRookShoot } from '../engine/robinrook'
+import { getRookShootTargets, getAllDirShootTargets, getRobinRookLegendaryTargets, applyRookShoot } from '../engine/robinrook'
 import { getPirateQueenTargets } from '../engine/piratequeen'
 import { getBlackKingTargets, getSpaceBlackKingTargets, applyBlackKingCapture, applyDeathAura, toggleTurn } from '../engine/blackking'
 import { getHappyPawnTargets, applyHappyPawnPush, getSpaceHappyPawnPlacementTargets, applySpaceHappyPawnPlace } from '../engine/happypawn'
@@ -261,8 +261,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const hasLegendaryUnipop = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.unipopLPath)
   const hasSpaceUnipop   = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.unipopLPath)
   const hasUnipop        = !hasSpaceUnipop && !hasLegendaryUnipop && currentCards.some(c => CARD_POWERS[c.characterId]?.unipopLPath)
-  const hasSpaceRobinRook = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.robinRookStay)
-  const hasRobinRook     = currentCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
+  const hasSpaceRobinRook    = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.robinRookStay)
+  const hasLegendaryRobinRook = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.robinRookStay)
+  const hasRobinRook         = currentCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
   const hasPuzzlePete    = currentCards.some(c => CARD_POWERS[c.characterId]?.puzzlePeteBounce)
   const hasPirateQueen   = currentCards.some(c => CARD_POWERS[c.characterId]?.pirateQueenBounce)
   const hasSpaceBlackKing     = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.blackKingCapture)
@@ -707,7 +708,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare,
       isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
       legendaryHappyPawnPromoteSquare,
-      hasUnipop, hasSpaceUnipop, hasLegendaryUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
+      hasUnipop, hasSpaceUnipop, hasLegendaryUnipop, hasRobinRook, hasSpaceRobinRook, hasLegendaryRobinRook, hasPuzzlePete, hasPirateQueen,
       hasCrystalQueenBase, hasCrystalQueenLegendary, hasBlackKing, hasLegendaryBlackKing, hasSpaceBlackKing, hasKingsGuard, hasLegendaryKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
       hasLegendaryHappyPawn, hasLegendaryChessbeard, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
@@ -722,6 +723,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       setUnipopState(state)
       setValidTargets(applyImmunityFilter(getUnipopTargets(chess, state), piece.color))
       setUnipopPathCaptures([])
+    } else if (hasLegendaryRobinRook && piece.type === 'r') {
+      setValidTargets(applyImmunityFilter(getRobinRookLegendaryTargets(chess, square), piece.color))
     } else if (hasRobinRook && piece.type === 'r') {
       const shootTargets = hasSpaceRobinRook ? getAllDirShootTargets(chess, square) : getRookShootTargets(chess, square)
       if (shootTargets.length > 0) {
