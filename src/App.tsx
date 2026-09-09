@@ -573,7 +573,7 @@ export default function App() {
                 : 'Pick 2 cards to bring into battle'
         }
         buttonLabel={gameMode === 'online' ? (pendingJoinId ? '⚔ Join Game' : '🔗 Create Link') : gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
-        ownedCardIds={ownedCardIds}
+        ownedCardIds={isCampaign ? ownedCardIds : undefined}
         maxPicksOverride={isCampaign && campaignOpponent!.chapter === 1 ? 1 : undefined}
       />
     )
@@ -586,7 +586,7 @@ export default function App() {
         onBack={() => { setPendingP1Cards(null); setScreen('p1-selection') }}
         playerLabel="Player 2 (Black) — Pick 2 cards"
         buttonLabel="⚔ Start Game"
-        ownedCardIds={ownedCardIds}
+        ownedCardIds={undefined}
       />
     )
   }
