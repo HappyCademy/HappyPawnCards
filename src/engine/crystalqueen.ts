@@ -32,6 +32,25 @@ function swapFen(fen: string, sqA: Square, sqB: Square, charA: string, charB: st
   return parts.join(' ')
 }
 
+/** Squares of own pawns the queen can swap with (legendary power — without leaving king in check). */
+export function getCrystalQueenLegendarySwapTargets(chess: Chess, queenSquare: Square): Square[] {
+  const queen = chess.get(queenSquare)
+  if (!queen || queen.type !== 'q') return []
+  const qChar = pieceChar('q', queen.color)
+  const results: Square[] = []
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.color !== queen.color || p.type !== 'p') continue
+      const targetSq = p.square as Square
+      const testFen = swapFen(chess.fen(), queenSquare, targetSq, qChar, pieceChar(p.type, p.color))
+      try {
+        if (!new Chess(testFen, { skipValidation: true }).isCheck()) results.push(targetSq)
+      } catch { /* skip */ }
+    }
+  }
+  return results
+}
+
 /** Squares of own knights, bishops, rooks the queen can swap with (without leaving king in check). */
 export function getCrystalQueenSwapTargets(chess: Chess, queenSquare: Square): Square[] {
   const queen = chess.get(queenSquare)

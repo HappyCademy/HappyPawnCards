@@ -160,10 +160,11 @@ export default function Board({
     for (const row of board) for (const p of row) { if (p?.square === selectedSquare) return p }
     return null
   })()
-  const hasCQBaseActive = selectedPiece?.type === 'q' && (
-    (selectedPiece.color === 'w' ? playerCards : aiCards)
-      .some(c => CARD_POWERS[c.characterId]?.crystalQueenSwap)
-  )
+  const cqCards = selectedPiece?.type === 'q'
+    ? (selectedPiece.color === 'w' ? playerCards : aiCards).filter(c => CARD_POWERS[c.characterId]?.crystalQueenSwap)
+    : []
+  const hasCQBaseActive = cqCards.length > 0
+  const hasCQLegendaryActive = cqCards.some(c => c.rarity === 'legendary')
 
   // ── Drag and drop ─────────────────────────────────────────────────────────────
   const [dragging, setDragging] = useState<{
@@ -320,7 +321,7 @@ export default function Board({
             const isSpaceHappyPawnTarget = isSpaceHappyPawnPlaceMode && validTargets.includes(square)
             const isCrystalQueenSwapTarget = hasCQBaseActive && validTargets.includes(square)
               && !!piece && piece.color === selectedPiece!.color
-              && (piece.type === 'n' || piece.type === 'b' || piece.type === 'r')
+              && (hasCQLegendaryActive ? piece.type === 'p' : (piece.type === 'n' || piece.type === 'b' || piece.type === 'r'))
             const cardImage = piece
               ? (piece.color === 'w' ? whitePieceImageMap[piece.type] : blackPieceImageMap[piece.type])
               : undefined

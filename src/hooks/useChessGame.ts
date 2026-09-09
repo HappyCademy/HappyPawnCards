@@ -21,7 +21,7 @@ import {
   getChessbeardSelectablePieces, getChessbeardTargets, applyChessbeardSacrifice,
 } from '../engine/chessbeard'
 import { getKingsGuardTeleportSquares, applyKingsGuardTeleport } from '../engine/kingsguard'
-import { getCrystalQueenSwapTargets, applyCrystalQueenSwap } from '../engine/crystalqueen'
+import { getCrystalQueenSwapTargets, getCrystalQueenLegendarySwapTargets, applyCrystalQueenSwap } from '../engine/crystalqueen'
 import {
   playMove, playCapture, playCheck, playPower, playWin, playLose, playTimerTick,
 } from '../utils/sounds'
@@ -267,7 +267,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const hasPirateQueen   = currentCards.some(c => CARD_POWERS[c.characterId]?.pirateQueenBounce)
   const hasBlackKing     = currentCards.some(c => CARD_POWERS[c.characterId]?.blackKingCapture)
   const hasHappyPawn     = currentCards.some(c => CARD_POWERS[c.characterId]?.happyPawnPush)
-  const hasCrystalQueenBase = currentCards.some(c => CARD_POWERS[c.characterId]?.crystalQueenSwap)
+  const hasCrystalQueenLegendary = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.crystalQueenSwap)
+  const hasCrystalQueenBase = !hasCrystalQueenLegendary && currentCards.some(c => CARD_POWERS[c.characterId]?.crystalQueenSwap)
   const hasKingsGuard    = currentCards.some(c => CARD_POWERS[c.characterId]?.kingsGuardBlock)
   const hasChessbeard    = currentCards.some(c => CARD_POWERS[c.characterId]?.chessbeardSacrifice)
   const hasSpaceChessbeard = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.chessbeardSacrifice)
@@ -642,7 +643,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
           return
         }
         let moved: Chess
-        if (hasCrystalQueenBase && chess.get(selectedSquare)?.type === 'q' && targetPiece?.color === chess.turn()) {
+        if ((hasCrystalQueenBase || hasCrystalQueenLegendary) && chess.get(selectedSquare)?.type === 'q' && targetPiece?.color === chess.turn()) {
           moved = applyCrystalQueenSwap(chess, selectedSquare, square)
         } else if (hasKingsGuard && chess.get(selectedSquare)?.type === 'p' && chess.isCheck()) {
           moved = applyKingsGuardTeleport(chess, selectedSquare, square)
@@ -690,7 +691,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
       legendaryHappyPawnPromoteSquare,
       hasUnipop, hasSpaceUnipop, hasLegendaryUnipop, hasRobinRook, hasSpaceRobinRook, hasPuzzlePete, hasPirateQueen,
-      hasCrystalQueenBase, hasBlackKing, hasKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
+      hasCrystalQueenBase, hasCrystalQueenLegendary, hasBlackKing, hasKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
       hasLegendaryHappyPawn, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
@@ -712,6 +713,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       } else {
         setValidTargets(getPseudoLegalTargets(chess, square))
       }
+    } else if (hasCrystalQueenLegendary && piece.type === 'q') {
+      const normalTargets = applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color)
+      const swapTargets = getCrystalQueenLegendarySwapTargets(chess, square)
+      setValidTargets([...normalTargets, ...swapTargets])
     } else if (hasCrystalQueenBase && piece.type === 'q') {
       const normalTargets = applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color)
       const swapTargets = getCrystalQueenSwapTargets(chess, square)
