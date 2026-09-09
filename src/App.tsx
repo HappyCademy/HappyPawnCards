@@ -174,7 +174,13 @@ export default function App() {
     joinHandledRef.current = true
     setGameMode('online')
     if (!auth.user) {
-      auth.signInAnonymously().then(() => setScreen('p1-selection')).catch(console.error)
+      auth.signInAnonymously()
+        .then(() => setScreen('p1-selection'))
+        .catch(() => {
+          // Anonymous auth not enabled — fall back to sign-in screen
+          setPendingMode('online')
+          setScreen('sign-in')
+        })
     } else {
       setScreen('p1-selection')
     }
@@ -198,7 +204,9 @@ export default function App() {
     if (mode === 'online') {
       setGameMode('online')
       if (!auth.user) {
-        auth.signInAnonymously().then(() => setScreen('p1-selection')).catch(console.error)
+        auth.signInAnonymously()
+          .then(() => setScreen('p1-selection'))
+          .catch(() => { setPendingMode('online'); setScreen('sign-in') })
       } else {
         setScreen('p1-selection')
       }
