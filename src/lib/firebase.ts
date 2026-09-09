@@ -19,8 +19,10 @@ const PROD_CONFIG = {
   appId: '1:259857752083:web:be0a3092e58e3bd0129fe6',
 }
 
+const useProduction = import.meta.env.VITE_FIREBASE_ENV === 'production'
+
 export const app = getApps().length
   ? getApps()[0]
-  : initializeApp(import.meta.env.PROD ? PROD_CONFIG : DEV_CONFIG)
+  : initializeApp(useProduction ? PROD_CONFIG : DEV_CONFIG)
 
 export const auth = getAuth(app)
