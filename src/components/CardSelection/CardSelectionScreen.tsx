@@ -248,6 +248,7 @@ interface Props {
   buttonLabel?: string
   ownedCardIds?: Set<string>
   maxPicksOverride?: number
+  errorMessage?: string
 }
 
 export default function CardSelectionScreen({
@@ -256,6 +257,7 @@ export default function CardSelectionScreen({
   buttonLabel = '⚔ Start Game',
   ownedCardIds,
   maxPicksOverride,
+  errorMessage,
 }: Props) {
   const [step, setStep] = useState<FlowStep>('character')
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null)
@@ -427,6 +429,17 @@ export default function CardSelectionScreen({
           onPick={handleCardPick}
           ownedCardIds={ownedCardIds}
         />
+      )}
+
+      {/* Join error */}
+      {errorMessage && (
+        <div style={{
+          marginTop: '12px', padding: '10px 16px', borderRadius: '10px',
+          background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)',
+          fontFamily: B, fontSize: '13px', color: '#fca5a5', textAlign: 'center',
+        }}>
+          {errorMessage}
+        </div>
       )}
 
       {/* Confirm */}

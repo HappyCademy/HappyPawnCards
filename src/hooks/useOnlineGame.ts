@@ -71,9 +71,9 @@ export function useOnlineGame({ userId, displayName, onExternalMove }: Options):
   const joinGame = useCallback(async (gameId: string, cards: CardVariant[]): Promise<void> => {
     if (!userId) throw new Error('Must be signed in')
     const existing = await loadOnlineGame(gameId)
-    if (!existing) { setJoinError('Game not found.'); return }
-    if (existing.status !== 'waiting') { setJoinError('This game is already full or has ended.'); return }
-    if (existing.white === userId) { setJoinError("You can't join your own game."); return }
+    if (!existing) { const m = 'Game not found.'; setJoinError(m); throw new Error(m) }
+    if (existing.status !== 'waiting') { const m = 'This game is already full or has ended.'; setJoinError(m); throw new Error(m) }
+    if (existing.white === userId) { const m = "You can't join your own game — share the link with a friend!"; setJoinError(m); throw new Error(m) }
 
     await firestoreJoin(gameId, userId, displayName, cards)
     setOnlineGameId(gameId)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut as fbSignOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously as fbSignInAnonymously, signOut as fbSignOut } from 'firebase/auth'
 import type { User } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 
@@ -7,6 +7,7 @@ export interface AuthState {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
+  signInAnonymously: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -26,9 +27,13 @@ export function useAuth(): AuthState {
     await signInWithEmailAndPassword(auth, email, password)
   }
 
+  async function signInAnonymously() {
+    await fbSignInAnonymously(auth)
+  }
+
   async function signOut() {
     await fbSignOut(auth)
   }
 
-  return { user, loading, signIn, signOut }
+  return { user, loading, signIn, signInAnonymously, signOut }
 }

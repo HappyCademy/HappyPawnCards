@@ -115,9 +115,9 @@ export default function App() {
     externalMoveRef.current?.(state)
   }, [])
 
-  const { onlineGameId, onlineDoc, myColor, createGame, joinGame, writeMyTurn, leaveGame } = useOnlineGame({
+  const { onlineGameId, onlineDoc, myColor, joinError, createGame, joinGame, writeMyTurn, leaveGame } = useOnlineGame({
     userId: auth.user?.uid ?? null,
-    displayName: auth.user?.email ?? null,
+    displayName: auth.user?.email ?? (auth.user ? 'Guest' : null),
     onExternalMove,
   })
 
@@ -174,8 +174,7 @@ export default function App() {
     joinHandledRef.current = true
     setGameMode('online')
     if (!auth.user) {
-      setPendingMode('online')
-      setScreen('sign-in')
+      auth.signInAnonymously().then(() => setScreen('p1-selection')).catch(console.error)
     } else {
       setScreen('p1-selection')
     }
@@ -196,19 +195,18 @@ export default function App() {
       setScreen('sign-in')
       return
     }
-    if (mode === 'online' && !auth.user) {
-      setPendingMode('online')
-      setScreen('sign-in')
+    if (mode === 'online') {
+      setGameMode('online')
+      if (!auth.user) {
+        auth.signInAnonymously().then(() => setScreen('p1-selection')).catch(console.error)
+      } else {
+        setScreen('p1-selection')
+      }
       return
     }
     if (mode === 'campaign') {
       setGameMode('vsComputer')
       setScreen('campaign')
-      return
-    }
-    if (mode === 'online') {
-      setGameMode('online')
-      setScreen('p1-selection')
       return
     }
     setGameMode(mode)
@@ -575,6 +573,7 @@ export default function App() {
         buttonLabel={gameMode === 'online' ? (pendingJoinId ? '⚔ Join Game' : '🔗 Create Link') : gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
         ownedCardIds={isCampaign ? ownedCardIds : undefined}
         maxPicksOverride={isCampaign && campaignOpponent!.chapter === 1 ? 1 : undefined}
+        errorMessage={gameMode === 'online' ? (joinError ?? undefined) : undefined}
       />
     )
   }
