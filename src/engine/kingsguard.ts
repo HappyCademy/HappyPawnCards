@@ -52,6 +52,41 @@ export function getKingsGuardTeleportSquares(chess: Chess, pawnSquare: Square): 
   return results
 }
 
+/** Squares where teleporting this pawn would put the enemy king in check (legendary power). */
+export function getKingsGuardLegendaryTargets(chess: Chess, pawnSquare: Square): Square[] {
+  const piece = chess.get(pawnSquare)
+  if (!piece || piece.type !== 'p') return []
+  const enemyColor = piece.color === 'w' ? 'b' : 'w'
+  const pawnChar = piece.color === 'w' ? 'P' : 'p'
+
+  const kingSquare = chess.board().flat().find(p => p?.type === 'k' && p.color === enemyColor)?.square
+  if (!kingSquare) return []
+  const kf = kingSquare.charCodeAt(0) - 97
+  const kr = parseInt(kingSquare[1]) - 1
+
+  // White pawn attacks up-diagonals → must land one rank below and one file from enemy king
+  // Black pawn attacks down-diagonals → must land one rank above and one file from enemy king
+  const dr = piece.color === 'w' ? -1 : 1
+  const candidates: Square[] = []
+  for (const df of [-1, 1]) {
+    const tf = kf + df, tr = kr + dr
+    if (tf < 0 || tf > 7 || tr < 0 || tr > 7) continue
+    const target = (String.fromCharCode(97 + tf) + (tr + 1)) as Square
+    if (target === pawnSquare) continue
+    const occupant = chess.get(target)
+    if (occupant && occupant.color === piece.color) continue
+    if (piece.color === 'w' && tr + 1 === 8) continue
+    if (piece.color === 'b' && tr + 1 === 1) continue
+    candidates.push(target)
+  }
+
+  return candidates.filter(target => {
+    const testFen = teleportPawnFen(chess.fen(), pawnSquare, target, pawnChar)
+    try { return new Chess(testFen, { skipValidation: true }).isCheck() }
+    catch { return false }
+  })
+}
+
 /** Teleport pawn from → to and advance the turn. */
 export function applyKingsGuardTeleport(chess: Chess, from: Square, to: Square): Chess {
   const piece = chess.get(from)

@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js'
-import type { Square } from 'chess.js'
+import type { Square, Color } from 'chess.js'
 
 // Returns all squares the king can reach, including squares with friendly pieces.
 export function getBlackKingTargets(chess: Chess, square: Square): Square[] {
@@ -53,6 +53,49 @@ export function applyBlackKingCapture(chess: Chess, from: Square, to: Square, ke
 
   try { return new Chess([board, ...parts.slice(1)].join(' '), { skipValidation: true }) }
   catch { return chess }
+}
+
+// Returns all squares reachable by a queen-style slide from the king's position.
+export function getSpaceBlackKingTargets(chess: Chess, square: Square): Square[] {
+  const piece = chess.get(square)
+  if (!piece || piece.type !== 'k') return []
+  const file = square.charCodeAt(0) - 97
+  const rank = parseInt(square[1]) - 1
+  const color = piece.color
+  const targets: Square[] = []
+  const DIRS: [number, number][] = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+  for (const [df, dr] of DIRS) {
+    let f = file + df, r = rank + dr
+    while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
+      const sq = (String.fromCharCode(97 + f) + (r + 1)) as Square
+      const blocker = chess.get(sq)
+      if (blocker) { if (blocker.color !== color) targets.push(sq); break }
+      targets.push(sq)
+      f += df; r += dr
+    }
+  }
+  return targets
+}
+
+// Destroys all pieces on the 8 squares adjacent to the legendary king (friend or foe).
+export function applyDeathAura(chess: Chess, playerColor: Color): Chess {
+  const kingSquare = chess.board().flat().find(p => p?.type === 'k' && p.color === playerColor)?.square
+  if (!kingSquare) return chess
+  const kf = kingSquare.charCodeAt(0) - 97
+  const kr = parseInt(kingSquare[1]) - 1
+  const parts = chess.fen().split(' ')
+  let board = parts[0]
+  for (let df = -1; df <= 1; df++) {
+    for (let dr = -1; dr <= 1; dr++) {
+      if (df === 0 && dr === 0) continue
+      const nf = kf + df, nr = kr + dr
+      if (nf < 0 || nf > 7 || nr < 0 || nr > 7) continue
+      const sq = (String.fromCharCode(97 + nf) + (nr + 1)) as Square
+      if (chess.get(sq)) board = setSquare(board, sq, null)
+    }
+  }
+  parts[0] = board
+  try { return new Chess(parts.join(' '), { skipValidation: true }) } catch { return chess }
 }
 
 // Toggle the active side without making a move (used to end the bonus move on skip).

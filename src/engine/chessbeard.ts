@@ -1,27 +1,38 @@
 import { Chess } from 'chess.js'
-import type { Square, PieceSymbol } from 'chess.js'
+import type { Square, PieceSymbol, Color } from 'chess.js'
 
 export const PIECE_VALUE: Record<PieceSymbol, number> = {
   p: 1, n: 3, b: 3, r: 5, q: 9, k: 100,
 }
 
+// Total non-king material value for a given color.
+export function countMaterial(chess: Chess, color: Color): number {
+  let total = 0
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (p && p.color === color && p.type !== 'k') total += PIECE_VALUE[p.type]
+    }
+  }
+  return total
+}
+
 // Own non-king pieces that have at least one valid sacrifice target.
-export function getChessbeardSelectablePieces(chess: Chess, anyValue = false): Square[] {
+export function getChessbeardSelectablePieces(chess: Chess, anyValue = false, allowEqual = false): Square[] {
   const color = chess.turn()
   const result: Square[] = []
   for (const row of chess.board()) {
     for (const p of row) {
       if (p && p.color === color && p.type !== 'k') {
-        if (getChessbeardTargets(chess, p.square, anyValue).length > 0) result.push(p.square)
+        if (getChessbeardTargets(chess, p.square, anyValue, allowEqual).length > 0) result.push(p.square)
       }
     }
   }
   return result
 }
 
-// All opponent pieces with strictly lower value than the sacrificed piece.
-// When anyValue is true (Space Chessbeard), targets ALL enemy non-king pieces.
-export function getChessbeardTargets(chess: Chess, sacrificeSquare: Square, anyValue = false): Square[] {
+// All opponent pieces the sacrificed piece can destroy.
+// Base: strictly lower value. Legendary (allowEqual): same or lower. Space (anyValue): all non-king.
+export function getChessbeardTargets(chess: Chess, sacrificeSquare: Square, anyValue = false, allowEqual = false): Square[] {
   const sacrificed = chess.get(sacrificeSquare)
   if (!sacrificed) return []
   const threshold = PIECE_VALUE[sacrificed.type]
@@ -30,7 +41,9 @@ export function getChessbeardTargets(chess: Chess, sacrificeSquare: Square, anyV
   for (const row of chess.board()) {
     for (const p of row) {
       if (p && p.color === enemy && p.type !== 'k') {
-        if (anyValue || PIECE_VALUE[p.type] < threshold) result.push(p.square)
+        if (anyValue || PIECE_VALUE[p.type] < threshold || (allowEqual && PIECE_VALUE[p.type] === threshold)) {
+          result.push(p.square)
+        }
       }
     }
   }
