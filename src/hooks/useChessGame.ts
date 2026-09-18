@@ -20,7 +20,7 @@ import { getHappyPawnTargets, applyHappyPawnPush, getSpaceHappyPawnPlacementTarg
 import {
   getChessbeardSelectablePieces, getChessbeardTargets, applyChessbeardSacrifice, countMaterial,
 } from '../engine/chessbeard'
-import { getKingsGuardTeleportSquares, getKingsGuardLegendaryTargets, applyKingsGuardTeleport } from '../engine/kingsguard'
+import { getKingsGuardTeleportSquares, getKingsGuardLegendaryTargets, applyKingsGuardTeleport, getSpaceKingsGuardProtectedSquares } from '../engine/kingsguard'
 import { getCrystalQueenSwapTargets, getCrystalQueenLegendarySwapTargets, applyCrystalQueenSwap } from '../engine/crystalqueen'
 import {
   playMove, playCapture, playCheck, playPower, playWin, playLose, playTimerTick,
@@ -36,6 +36,10 @@ export interface OnlineSyncState {
   crystalQueenVulnerable: boolean
   spaceChessbeardFrozenSquare: string | null
   status: GameStatus
+  resignedBy?: 'w' | 'b' | null
+  timedOut?: 'w' | 'b' | null
+  timeRemainingW?: number | null
+  timeRemainingB?: number | null
 }
 
 export interface BoardPiece {
@@ -69,6 +73,9 @@ export interface GameState {
   isSpaceChessbeardFreezeMode: boolean
   spaceChessbeardFrozenSquare: Square | null
   spaceHappyPawnAvailable: boolean
+  isAdmiralGambitPawnSelectMode: boolean
+  admiralGambitPawnSquare: Square | null
+  admiralGambitAvailable: boolean
   crystalQueenVulnerable: boolean
   respawnedSquares: Square[]
   legendaryHappyPawnPromoteSquare: Square | null
@@ -84,6 +91,7 @@ export interface GameActions {
   onSkipBlackKingBonus: () => void
   onChessbeardActivate: () => void
   onSpaceHappyPawnPlace: () => void
+  onAdmiralGambitActivate: () => void
   onLegendaryHappyPawnPromote: (piece: PieceSymbol) => void
   onNewGame: () => void
   onUndo: () => void
@@ -211,7 +219,7 @@ interface Options {
   playerCards: CardVariant[]
   aiCards?: CardVariant[]
   gameMode?: GameMode
-  onlineConfig?: { myColor: 'w' | 'b'; onTurnComplete: (state: OnlineSyncState) => void }
+  onlineConfig?: { myColor: 'w' | 'b'; onTurnComplete: (state: OnlineSyncState) => void; timeControl?: number | null }
 }
 
 export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig }: Options): GameState & GameActions {
@@ -235,9 +243,11 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const [timeLeft, setTimeLeft] = useState(60)
   const [timedOut, setTimedOut] = useState<Color | null>(null)
   const [resignedBy, setResignedBy] = useState<Color | null>(null)
-  const [gameActive, setGameActive] = useState(false)
+  const [gameActive, setGameActive] = useState(gameMode !== 'vsComputer')
   const [isSpaceHappyPawnPlaceMode, setIsSpaceHappyPawnPlaceMode] = useState(false)
   const [isSpaceChessbeardFreezeMode, setIsSpaceChessbeardFreezeMode] = useState(false)
+  const [isAdmiralGambitPawnSelectMode, setIsAdmiralGambitPawnSelectMode] = useState(false)
+  const [admiralGambitPawnSquare, setAdmiralGambitPawnSquare] = useState<Square | null>(null)
   const [spaceChessbeardFrozenSquare, setSpaceChessbeardFrozenSquare] = useState<Square | null>(null)
   const [freezeSetByColor, setFreezeSetByColor] = useState<Color | null>(null)
   const [legendaryHappyPawnPromoteSquare, setLegendaryHappyPawnPromoteSquare] = useState<Square | null>(null)
@@ -250,6 +260,13 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const [tick, setTick] = useState(0)
   const onTurnCompleteRef = useRef(onlineConfig?.onTurnComplete)
   useEffect(() => { onTurnCompleteRef.current = onlineConfig?.onTurnComplete }, [onlineConfig?.onTurnComplete])
+  const resignSyncedRef = useRef(false)
+  const timedOutSyncedRef = useRef(false)
+  const timeLeftRef = useRef(onlineConfig?.timeControl ?? 60)
+  const lastReceivedTimeRef = useRef<{ w: number | null; b: number | null }>({
+    w: onlineConfig?.timeControl ?? null,
+    b: onlineConfig?.timeControl ?? null,
+  })
   const bump = useCallback(() => setTick(t => t + 1), [])
 
   const chess = chessRef.current
@@ -279,6 +296,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const hasChessbeard    = currentCards.some(c => CARD_POWERS[c.characterId]?.chessbeardSacrifice)
   const hasSpaceHappyPawn  = currentCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.happyPawnPush)
   const hasLegendaryHappyPawn = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.happyPawnPush)
+  const hasLegendaryAdmiralGambit = currentCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.generalGambitRespawn)
   const hasPlayerGambit  = playerCards.some(c => CARD_POWERS[c.characterId]?.generalGambitRespawn)
   const hasAIGambit      = aiCards.some(c => CARD_POWERS[c.characterId]?.generalGambitRespawn)
 
@@ -294,6 +312,12 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     aiCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.crystalQueenImmune) ? 'b' :
     null
   const hasCrystalQueen = crystalQueenColor !== null
+
+  // Space King's Guard: which color's pieces are shielded by pawns
+  const spaceKingsGuardColor: Color | null =
+    playerCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.kingsGuardBlock) ? 'w' :
+    aiCards.some(c => c.rarity === 'space' && CARD_POWERS[c.characterId]?.kingsGuardBlock) ? 'b' :
+    null
 
   // Apply General Gambit respawns: any pawn captured in this half-move respawns instantly.
   function withRespawns(before: Chess, after: Chess): Chess {
@@ -335,11 +359,41 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }
 
   function applyImmunityFilter(targets: Square[], attackerColor: Color): Square[] {
-    if (!hasCrystalQueen || crystalQueenVulnerable || !crystalQueenColor || attackerColor === crystalQueenColor) {
-      return targets
+    let result = targets
+
+    // Crystal Queen: immune unless vulnerable
+    if (hasCrystalQueen && !crystalQueenVulnerable && crystalQueenColor && attackerColor !== crystalQueenColor) {
+      const cqSq = getCrystalQueenSquare(chess, crystalQueenColor)
+      if (cqSq) result = result.filter(sq => sq !== cqSq)
     }
-    const cqSq = getCrystalQueenSquare(chess, crystalQueenColor)
-    return cqSq ? targets.filter(sq => sq !== cqSq) : targets
+
+    // Space King's Guard: pieces shielded by 3+ adjacent pawns can't be captured
+    if (spaceKingsGuardColor && attackerColor !== spaceKingsGuardColor) {
+      const shielded = getSpaceKingsGuardProtectedSquares(chess, spaceKingsGuardColor)
+      if (shielded.length > 0) result = result.filter(sq => !shielded.includes(sq))
+    }
+
+    return result
+  }
+
+  function applyAdmiralGambitSacrifice(chess: Chess, pawnSquare: Square, pieceSquare: Square): Chess {
+    const movingPiece = chess.get(pieceSquare)
+    if (!movingPiece) return chess
+    const pieceChar = movingPiece.color === 'w' ? movingPiece.type.toUpperCase() : movingPiece.type.toLowerCase()
+    const fi = (sq: Square) => sq.charCodeAt(0) - 97
+    const ri = (sq: Square) => 8 - parseInt(sq[1])
+    const expand = (r: string) => { let e = ''; for (const c of r) e += c >= '1' && c <= '8' ? '1'.repeat(+c) : c; return e }
+    const compress = (r: string) => { let c = '', b = 0; for (const ch of r) { if (ch === '1') b++; else { if (b) { c += b; b = 0 } c += ch } } if (b) c += b; return c }
+    const parts = chess.fen().split(' ')
+    const rows = parts[0].split('/').map(expand)
+    rows[ri(pawnSquare)] = rows[ri(pawnSquare)].slice(0, fi(pawnSquare)) + pieceChar + rows[ri(pawnSquare)].slice(fi(pawnSquare) + 1)
+    rows[ri(pieceSquare)] = rows[ri(pieceSquare)].slice(0, fi(pieceSquare)) + '1' + rows[ri(pieceSquare)].slice(fi(pieceSquare) + 1)
+    parts[0] = rows.map(compress).join('/')
+    parts[1] = parts[1] === 'w' ? 'b' : 'w'
+    parts[3] = '-'
+    parts[4] = '0'
+    if (movingPiece.color === 'b') parts[5] = String(parseInt(parts[5]) + 1)
+    try { return new Chess(parts.join(' '), { skipValidation: true }) } catch { return chess }
   }
 
   function clearSelection() {
@@ -355,6 +409,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setChessbeardSacrificeSquare(null)
     setIsSpaceHappyPawnPlaceMode(false)
     setIsSpaceChessbeardFreezeMode(false)
+    setIsAdmiralGambitPawnSelectMode(false)
+    setAdmiralGambitPawnSquare(null)
   }
 
   function formatMoveNotation(before: Chess, from: Square, to: Square): string {
@@ -364,10 +420,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     return sym + from + (captured ? 'x' : '-') + to
   }
 
-  function completeTurn(before: Chess, after: Chess, fromSq: Square, toSq: Square) {
+  function completeTurn(before: Chess, after: Chess, fromSq: Square, toSq: Square, noRespawn = false) {
     fenHistoryRef.current.push({ fen: before.fen(), moveCount: moveHistoryRef.current.length })
     moveHistoryRef.current.push(formatMoveNotation(before, fromSq, toSq))
-    let withR = withRespawns(before, after)
+    let withR = noRespawn ? after : withRespawns(before, after)
     const movedBy = before.turn() as Color
     const movedByCards = movedBy === 'w' ? playerCards : aiCards
     if (movedByCards.some(c => c.rarity === 'legendary' && CARD_POWERS[c.characterId]?.blackKingCapture)) {
@@ -417,9 +473,47 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     return () => window.removeEventListener('keydown', onKey)
   }, [unipopBonusSquare])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Online sync: after every bump, if it's the opponent's turn, write state to Firestore
+  // Online sync: write to Firestore when it's the opponent's turn, on resign, or on timeout
   useEffect(() => {
-    if (!onlineConfig || !tick) return
+    if (!onlineConfig) return
+
+    // Resign: notify opponent once
+    if (resignedBy !== null && !resignSyncedRef.current) {
+      resignSyncedRef.current = true
+      onTurnCompleteRef.current?.({
+        fen: chessRef.current.fen(),
+        moveHistory: [...moveHistoryRef.current],
+        lastMove,
+        crystalQueenVulnerable,
+        spaceChessbeardFrozenSquare: spaceChessbeardFrozenSquare as string | null,
+        status: resignedBy === 'w' ? 'black-wins' : 'white-wins',
+        resignedBy,
+        timeRemainingW: lastReceivedTimeRef.current.w,
+        timeRemainingB: lastReceivedTimeRef.current.b,
+      })
+      return
+    }
+
+    // Timeout: notify opponent once
+    if (timedOut !== null && !timedOutSyncedRef.current) {
+      timedOutSyncedRef.current = true
+      onTurnCompleteRef.current?.({
+        fen: chessRef.current.fen(),
+        moveHistory: [...moveHistoryRef.current],
+        lastMove,
+        crystalQueenVulnerable,
+        spaceChessbeardFrozenSquare: spaceChessbeardFrozenSquare as string | null,
+        status: timedOut === 'w' ? 'black-wins' : 'white-wins',
+        resignedBy: null,
+        timedOut,
+        timeRemainingW: timedOut === 'w' ? 0 : lastReceivedTimeRef.current.w,
+        timeRemainingB: timedOut === 'b' ? 0 : lastReceivedTimeRef.current.b,
+      })
+      return
+    }
+
+    if (resignedBy !== null || timedOut !== null) return
+    if (!tick) return
     if (chessRef.current.turn() === onlineConfig.myColor) return  // still my turn
     onTurnCompleteRef.current?.({
       fen: chessRef.current.fen(),
@@ -428,10 +522,37 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       crystalQueenVulnerable,
       spaceChessbeardFrozenSquare: spaceChessbeardFrozenSquare as string | null,
       status: getStatus(chessRef.current),
+      resignedBy: null,
+      timeRemainingW: onlineConfig.myColor === 'w' ? timeLeftRef.current : lastReceivedTimeRef.current.w,
+      timeRemainingB: onlineConfig.myColor === 'b' ? timeLeftRef.current : lastReceivedTimeRef.current.b,
     })
-  }, [tick])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tick, resignedBy, timedOut])  // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyExternalTurn(state: OnlineSyncState) {
+    if (state.resignedBy) {
+      setResignedBy(state.resignedBy)
+      resignSyncedRef.current = true
+      clearSelection()
+      bump()
+      return
+    }
+    if (state.timedOut) {
+      setTimedOut(state.timedOut)
+      timedOutSyncedRef.current = true
+      clearSelection()
+      bump()
+      return
+    }
+    // Update time pools from opponent's sync
+    if (state.timeRemainingW !== undefined && state.timeRemainingW !== null)
+      lastReceivedTimeRef.current.w = state.timeRemainingW
+    if (state.timeRemainingB !== undefined && state.timeRemainingB !== null)
+      lastReceivedTimeRef.current.b = state.timeRemainingB
+    // Set my clock to my remaining pool (it's now my turn)
+    if (onlineConfig?.timeControl && onlineConfig.timeControl > 0) {
+      const myTime = onlineConfig.myColor === 'w' ? lastReceivedTimeRef.current.w : lastReceivedTimeRef.current.b
+      if (myTime !== null) { setTimeLeft(myTime); timeLeftRef.current = myTime }
+    }
     chessRef.current = new Chess(state.fen, { skipValidation: true })
     setCrystalQueenVulnerable(state.crystalQueenVulnerable)
     setSpaceChessbeardFrozenSquare(state.spaceChessbeardFrozenSquare as Square | null)
@@ -469,7 +590,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
 
   const onSquareClick = useCallback((square: Square) => {
     if (getStatus(chess) !== 'playing' || resignedBy !== null) return
-    if (onlineConfig && chess.turn() !== onlineConfig.myColor) return
+    if (gameMode === 'online' && (!onlineConfig || chess.turn() !== onlineConfig.myColor)) return
 
     // ── Legendary Happy Pawn: waiting for promotion choice ────────────────────
     if (legendaryHappyPawnPromoteSquare) return
@@ -582,6 +703,51 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
         setIsChessbeardSelectMode(true)
         setSelectedSquare(null)
         setValidTargets(getChessbeardSelectablePieces(chess, hasSpaceChessbeard, hasLegendaryChessbeard))
+        return
+      }
+      clearSelection()
+      return
+    }
+
+    // ── Admiral Gambit: selecting pawn to sacrifice ──────────────────────
+    if (isAdmiralGambitPawnSelectMode) {
+      if (validTargets.includes(square)) {
+        const eligible: Square[] = []
+        for (const row of chess.board()) {
+          for (const p of row) {
+            if (p && p.color === chess.turn() && p.type !== 'p' && p.type !== 'q') eligible.push(p.square as Square)
+          }
+        }
+        setAdmiralGambitPawnSquare(square)
+        setIsAdmiralGambitPawnSelectMode(false)
+        setSelectedSquare(square)
+        setValidTargets(eligible)
+      } else if (!isMyPiece) {
+        clearSelection()
+      }
+      return
+    }
+
+    // ── Admiral Gambit: selecting piece to teleport ───────────────────────
+    if (admiralGambitPawnSquare) {
+      if (validTargets.includes(square)) {
+        const before = chess
+        const sacrificed = applyAdmiralGambitSacrifice(chess, admiralGambitPawnSquare, square)
+        completeTurn(before, sacrificed, admiralGambitPawnSquare, square, true)
+        return
+      }
+      if (square === admiralGambitPawnSquare || (isMyPiece && piece?.type === 'p')) {
+        // Re-click or different pawn → back to pawn-select phase
+        const ownPawns: Square[] = []
+        for (const row of chess.board()) {
+          for (const p of row) {
+            if (p?.type === 'p' && p.color === chess.turn()) ownPawns.push(p.square as Square)
+          }
+        }
+        setAdmiralGambitPawnSquare(null)
+        setIsAdmiralGambitPawnSelectMode(true)
+        setSelectedSquare(null)
+        setValidTargets(ownPawns)
         return
       }
       clearSelection()
@@ -707,10 +873,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }, [chess, selectedSquare, validTargets, unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode,
       blackKingBonusSquare, isChessbeardSelectMode, chessbeardSacrificeSquare,
       isSpaceChessbeardFreezeMode, isSpaceHappyPawnPlaceMode, spaceChessbeardFrozenSquare,
-      legendaryHappyPawnPromoteSquare,
+      legendaryHappyPawnPromoteSquare, isAdmiralGambitPawnSelectMode, admiralGambitPawnSquare,
       hasUnipop, hasSpaceUnipop, hasLegendaryUnipop, hasRobinRook, hasSpaceRobinRook, hasLegendaryRobinRook, hasPuzzlePete, hasPirateQueen,
       hasCrystalQueenBase, hasCrystalQueenLegendary, hasBlackKing, hasLegendaryBlackKing, hasSpaceBlackKing, hasKingsGuard, hasLegendaryKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
-      hasLegendaryHappyPawn, hasLegendaryChessbeard, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
+      hasLegendaryHappyPawn, hasLegendaryChessbeard, hasLegendaryAdmiralGambit, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
     setSelectedSquare(square)
@@ -787,6 +953,21 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setValidTargets(getSpaceHappyPawnPlacementTargets(cur))
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  const onAdmiralGambitActivate = useCallback(() => {
+    if (getStatus(chessRef.current) !== 'playing') return
+    const color = chessRef.current.turn()
+    const ownPawns: Square[] = []
+    for (const row of chessRef.current.board()) {
+      for (const p of row) {
+        if (p?.type === 'p' && p.color === color) ownPawns.push(p.square as Square)
+      }
+    }
+    setIsAdmiralGambitPawnSelectMode(true)
+    setAdmiralGambitPawnSquare(null)
+    setSelectedSquare(null)
+    setValidTargets(ownPawns)
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const onLegendaryHappyPawnPromote = useCallback((piece: PieceSymbol) => {
     if (!legendaryHappyPawnPromoteSquare || !promotePendingRef.current) return
     const promoted = replacePieceAt(chessRef.current, legendaryHappyPawnPromoteSquare, piece)
@@ -797,15 +978,18 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     bump()
   }, [legendaryHappyPawnPromoteSquare, bump])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer: reset to 60s on each move
+  // Timer: reset on each move (skip in online time-pool mode — clock managed by sync)
   useEffect(() => {
+    if (gameMode === 'online' && onlineConfig?.timeControl) return
     setTimeLeft(60)
-  }, [lastMove])
+    timeLeftRef.current = 60
+  }, [lastMove])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer: count down every second; pause on AI turn, Black King bonus, or game over
+  // Timer: count down every second; pause on AI turn, Black King bonus, game over, or opponent's online turn
   useEffect(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     const cur = chessRef.current
+    const isOnlinePool = gameMode === 'online' && !!onlineConfig?.timeControl
     if (
       !gameActive ||
       !lastMove ||
@@ -813,16 +997,23 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       resignedBy !== null ||
       getStatus(cur) !== 'playing' ||
       (gameMode === 'vsComputer' && cur.turn() === 'b') ||
+      (gameMode === 'online' && onlineConfig && cur.turn() !== onlineConfig.myColor) ||
       !!blackKingBonusSquare
     ) return
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
-        if (t <= 1) {
+        const next = t <= 1 ? 0 : t - 1
+        timeLeftRef.current = next
+        if (isOnlinePool) {
+          const myColor = onlineConfig!.myColor
+          if (myColor === 'w') lastReceivedTimeRef.current.w = next
+          else lastReceivedTimeRef.current.b = next
+        }
+        if (next <= 0) {
           setTimedOut(chessRef.current.turn())
           if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-          return 0
         }
-        return t - 1
+        return next
       })
     }, 1000)
     return () => {
@@ -893,6 +1084,11 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     if (arrowShot) playPower()
   }, [arrowShot])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Power sounds — button-activated modes
+  useEffect(() => { if (isChessbeardSelectMode) playPower() }, [isChessbeardSelectMode])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isSpaceHappyPawnPlaceMode) playPower() }, [isSpaceHappyPawnPlaceMode])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isAdmiralGambitPawnSelectMode) playPower() }, [isAdmiralGambitPawnSelectMode])  // eslint-disable-line react-hooks/exhaustive-deps
+
   // Timer tick for last 10 seconds
   useEffect(() => {
     if (timeLeft > 0 && timeLeft <= 10) playTimerTick()
@@ -961,6 +1157,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setTimeLeft(60)
     setTimedOut(null)
     setResignedBy(null)
+    resignSyncedRef.current = false
+    timedOutSyncedRef.current = false
+    timeLeftRef.current = onlineConfig?.timeControl ?? 60
+    lastReceivedTimeRef.current = { w: onlineConfig?.timeControl ?? null, b: onlineConfig?.timeControl ?? null }
     setGameActive(true)
     setCrystalQueenVulnerable(false)
     setRespawnedSquares([])
@@ -972,8 +1172,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }, [bump])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const onResign = useCallback(() => {
-    setResignedBy(chessRef.current.turn())
-  }, [])
+    setResignedBy(onlineConfig?.myColor ?? chessRef.current.turn())
+  }, [onlineConfig?.myColor])
 
   const onUndo = useCallback(() => {
     if (legendaryHappyPawnPromoteSquare && promotePendingRef.current) {
@@ -985,7 +1185,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       bump()
       return
     }
-    if (unipopState || unipopBonusSquare || isRookShootMode || rookChoiceSquare || isChessbeardSelectMode || chessbeardSacrificeSquare) {
+    if (unipopState || unipopBonusSquare || isRookShootMode || rookChoiceSquare || isChessbeardSelectMode || chessbeardSacrificeSquare || isAdmiralGambitPawnSelectMode || admiralGambitPawnSquare) {
       if (unipopBonusSquare) chessRef.current = toggleTurn(chessRef.current)
       clearSelection(); return
     }
@@ -997,7 +1197,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setLastMove(null)
     setCrystalQueenVulnerable(false)
     bump()
-  }, [chess, unipopState, unipopBonusSquare, isRookShootMode, rookChoiceSquare, isChessbeardSelectMode, chessbeardSacrificeSquare, bump])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chess, unipopState, unipopBonusSquare, isRookShootMode, rookChoiceSquare, isChessbeardSelectMode, chessbeardSacrificeSquare, isAdmiralGambitPawnSelectMode, admiralGambitPawnSquare, bump])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = chessRef.current
   const rawStatus = getStatus(cur)
@@ -1039,6 +1239,23 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     && !(gameMode === 'vsComputer' && cur.turn() === 'b')
     && countPawnsInReserve(cur, cur.turn()) > 0
 
+  const admiralGambitAvailable = hasLegendaryAdmiralGambit
+    && effectiveStatus === 'playing'
+    && !isAdmiralGambitPawnSelectMode
+    && admiralGambitPawnSquare === null
+    && !isChessbeardSelectMode
+    && chessbeardSacrificeSquare === null
+    && blackKingBonusSquare === null
+    && unipopState === null
+    && unipopBonusSquare === null
+    && !isRookShootMode
+    && rookChoiceSquare === null
+    && !isSpaceChessbeardFreezeMode
+    && !isSpaceHappyPawnPlaceMode
+    && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+    && cur.board().flat().some(p => p?.type === 'p' && p.color === cur.turn())
+    && cur.board().flat().some(p => p?.color === cur.turn() && p?.type !== 'p' && p?.type !== 'q')
+
   return {
     board: buildBoard(cur),
     selectedSquare,
@@ -1064,6 +1281,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     isSpaceChessbeardFreezeMode,
     spaceChessbeardFrozenSquare,
     spaceHappyPawnAvailable,
+    isAdmiralGambitPawnSelectMode,
+    admiralGambitPawnSquare,
+    admiralGambitAvailable,
     crystalQueenVulnerable,
     respawnedSquares,
     legendaryHappyPawnPromoteSquare,
@@ -1076,6 +1296,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     onSkipBlackKingBonus,
     onChessbeardActivate,
     onSpaceHappyPawnPlace,
+    onAdmiralGambitActivate,
     onLegendaryHappyPawnPromote,
     onNewGame,
     onUndo,

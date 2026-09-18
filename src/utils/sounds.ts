@@ -72,3 +72,5 @@ export function playLose() {
 export function playTimerTick() {
   tone(1600, 0.022, 0.07, 'square')
 }
+
+export function unlockAudio() { ac() }

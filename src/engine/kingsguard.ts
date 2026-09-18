@@ -87,6 +87,30 @@ export function getKingsGuardLegendaryTargets(chess: Chess, pawnSquare: Square):
   })
 }
 
+/** Squares of non-pawn pieces of `color` protected by 3+ adjacent friendly pawns (Space power). */
+export function getSpaceKingsGuardProtectedSquares(chess: Chess, color: 'w' | 'b'): Square[] {
+  const result: Square[] = []
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.color !== color || p.type === 'p') continue
+      const file = p.square.charCodeAt(0) - 97
+      const rank = parseInt(p.square[1]) - 1
+      let pawnNeighbors = 0
+      for (let df = -1; df <= 1; df++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          if (df === 0 && dr === 0) continue
+          const f = file + df, r = rank + dr
+          if (f < 0 || f > 7 || r < 0 || r > 7) continue
+          const adj = chess.get((String.fromCharCode(97 + f) + (r + 1)) as Square)
+          if (adj && adj.type === 'p' && adj.color === color) pawnNeighbors++
+        }
+      }
+      if (pawnNeighbors >= 3) result.push(p.square as Square)
+    }
+  }
+  return result
+}
+
 /** Teleport pawn from → to and advance the turn. */
 export function applyKingsGuardTeleport(chess: Chess, from: Square, to: Square): Chess {
   const piece = chess.get(from)

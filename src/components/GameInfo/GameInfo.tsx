@@ -12,17 +12,19 @@ interface Props {
   focusedSpecialCard?: CardVariant | null
   showSpecialPieces?: boolean
   onToggleSpecialPieces?: () => void
+  myColor?: 'w' | 'b' | null
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces }: Props) {
+export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor }: Props) {
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
     isChessbeardSelectMode, chessbeardSacrificeSquare, chessbeardAvailable,
     isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceHappyPawnAvailable,
+    isAdmiralGambitPawnSelectMode, admiralGambitPawnSquare, admiralGambitAvailable,
     timeLeft, timedOut, resignedBy, gameMode,
   } = state
 
@@ -34,7 +36,10 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
   const isBlackKingBonus = blackKingBonusSquare !== null
   const isChessbeardActive = isChessbeardSelectMode || chessbeardSacrificeSquare !== null
   const isSpaceActive = isSpaceChessbeardFreezeMode || isSpaceHappyPawnPlaceMode
+  const isAdmiralGambitActive = isAdmiralGambitPawnSelectMode || admiralGambitPawnSquare !== null
   const isVsPlayer = gameMode === 'vsPlayer'
+  const isOnline = gameMode === 'online'
+  const isMyTurn = isOnline && myColor ? myColor === turn : turn === 'w'
 
   const [resignPending, setResignPending] = useState(false)
   const [showPiecePicker, setShowPiecePicker] = useState(false)
@@ -54,12 +59,14 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     setRobiMood('yourturn')
   }, [isAIThinking, isGameOver, isVsPlayer])
 
-  const turnLabel = turn === 'w'
+  const turnLabel = isOnline
+    ? (isMyTurn ? 'You' : 'Opponent')
+    : turn === 'w'
     ? (isVsPlayer ? 'Player 1' : 'You')
     : (isVsPlayer ? 'Player 2' : 'AI')
 
   let robiSrc: string | null = null
-  if (!isVsPlayer) {
+  if (!isVsPlayer && !isOnline) {
     if (isGameOver) {
       robiSrc = status === 'black-wins' ? '/images/robi/robi-win.png' : '/images/robi/robi-lost.png'
     } else if (robiMood === 'thinking') {
@@ -84,13 +91,13 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     const isResign = resignedBy !== null
     const isTimeout = timedOut !== null
     if (status === 'white-wins') {
-      statusLine = isResign ? (isVsPlayer ? 'Player 1 resigned — Player 2 wins!' : 'You resigned')
+      statusLine = isResign ? (isVsPlayer ? 'Player 1 resigned — Player 2 wins!' : isOnline ? 'Opponent resigned — You win!' : 'You resigned')
         : isTimeout ? "Time's up — White loses!"
-        : isVsPlayer ? 'Player 1 wins!' : 'You win!'
+        : isVsPlayer ? 'Player 1 wins!' : isOnline ? (isMyTurn ? 'You win!' : 'Opponent wins!') : 'You win!'
     } else if (status === 'black-wins') {
-      statusLine = isResign ? (isVsPlayer ? 'Player 2 resigned — Player 1 wins!' : 'You resigned — AI wins!')
+      statusLine = isResign ? (isVsPlayer ? 'Player 2 resigned — Player 1 wins!' : isOnline ? 'Opponent resigned — You win!' : 'You resigned — AI wins!')
         : isTimeout ? "Time's up — Black loses!"
-        : isVsPlayer ? 'Player 2 wins!' : 'AI wins!'
+        : isVsPlayer ? 'Player 2 wins!' : isOnline ? (isMyTurn ? 'You win!' : 'Opponent wins!') : 'AI wins!'
     } else {
       statusLine = 'Draw!'
     }
@@ -111,6 +118,12 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
   } else if (chessbeardSacrificeSquare) {
     statusIcon = '⚔'; statusLine = 'Pick an enemy to destroy'
     statusColor = '#f87171'; bannerBorderColor = 'rgba(248,113,113,0.35)'
+  } else if (isAdmiralGambitPawnSelectMode) {
+    statusIcon = '⚓'; statusLine = 'Admiral Gambit — pick a pawn to sacrifice'
+    statusColor = '#fbbf24'; bannerBorderColor = 'rgba(251,191,36,0.35)'
+  } else if (admiralGambitPawnSquare) {
+    statusIcon = '⚓'; statusLine = 'Admiral Gambit — pick a piece to teleport'
+    statusColor = '#fbbf24'; bannerBorderColor = 'rgba(251,191,36,0.35)'
   } else if (isUnipopBonus) {
     statusIcon = '🦄'; statusLine = 'Double Jump — jump again or click anywhere to pass'
     statusColor = '#c084fc'; bannerBorderColor = 'rgba(192,132,252,0.35)'
@@ -123,7 +136,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
   } else if (isRookShootMode) {
     statusIcon = '🎯'; statusLine = 'Robin Rook — Pick a target'
     statusColor = '#fb923c'; bannerBorderColor = 'rgba(251,146,60,0.35)'
-  } else if (isAIThinking && !isVsPlayer) {
+  } else if (isAIThinking && !isVsPlayer && !isOnline) {
     statusIcon = '⧗'; statusLine = 'AI is thinking...'
     statusColor = '#a08fff'; bannerBorderColor = 'rgba(160,143,255,0.3)'
   } else if (isCheck) {
@@ -131,11 +144,11 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     statusColor = '#fb923c'; bannerBorderColor = 'rgba(251,146,60,0.4)'
   } else {
     isTurnPill = true
-    if (turn === 'w') {
+    if (isOnline ? isMyTurn : turn === 'w') {
       statusIcon = 'ℹ'; statusLine = isVsPlayer ? 'Player 1' : 'Your Turn!'
       statusColor = '#60b4f8'; bannerBorderColor = 'rgba(96,180,248,0.45)'
     } else {
-      statusIcon = '💀'; statusLine = isVsPlayer ? 'Player 2' : "Opponent's Turn..."
+      statusIcon = '💀'; statusLine = isVsPlayer ? 'Player 2' : isOnline ? "Opponent's Turn..." : "Opponent's Turn..."
       statusColor = '#f87171'; bannerBorderColor = 'rgba(248,113,113,0.35)'
     }
   }
@@ -146,13 +159,15 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     : isBlackKingBonus ? 'Move the king again, or skip below'
     : isChessbeardSelectMode ? 'Click one of your highlighted pieces'
     : chessbeardSacrificeSquare ? 'Click a red-highlighted enemy, or reselect'
+    : isAdmiralGambitPawnSelectMode ? 'Click a highlighted pawn to sacrifice it'
+    : admiralGambitPawnSquare ? 'Click a highlighted piece to teleport it to the pawn square'
     : isUnipopBonus ? 'Click a highlighted square for second jump, or click anywhere else to end turn'
     : isUnipopActive ? 'Click a highlighted square to trace the L-path'
     : isRookChoosing ? 'Click Move to reposition, or Shoot to capture in place'
     : isRookShootMode ? 'Click an orange-highlighted enemy to shoot'
     : isCheck ? 'Get your king out of danger!'
-    : turn === 'w' ? "Capture the opponent's king to win!"
-    : (isVsPlayer ? "Capture the opponent's king to win!" : 'Waiting for AI...')
+    : isMyTurn ? "Capture the opponent's king to win!"
+    : (isVsPlayer || isOnline ? "Capture the opponent's king to win!" : 'Waiting for AI...')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', color: 'var(--ivory)', fontFamily: B }}>
@@ -251,7 +266,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
       {/* ── Player badges ──────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
         <PlayerBadge
-          label={isVsPlayer ? 'Player 1' : 'You'}
+          label={isVsPlayer ? 'Player 1' : isOnline ? (myColor === 'w' ? 'You' : 'Opponent') : 'You'}
           sublabel="White"
           color="white"
           active={turn === 'w' && !isGameOver}
@@ -265,7 +280,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           VS
         </div>
         <PlayerBadge
-          label={isVsPlayer ? 'Player 2' : 'AI'}
+          label={isVsPlayer ? 'Player 2' : isOnline ? (myColor === 'b' ? 'You' : 'Opponent') : 'AI'}
           sublabel="Black"
           color="black"
           active={turn === 'b' && !isGameOver}
@@ -302,7 +317,12 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           🚀 Place Pawn (Reserve)
         </GameBtn>
       )}
-      {(isChessbeardActive || isSpaceActive) && (
+      {admiralGambitAvailable && !isGameOver && (
+        <GameBtn onClick={actions.onAdmiralGambitActivate} variant="yellow">
+          ⚓ Pawn Sacrifice (Admiral)
+        </GameBtn>
+      )}
+      {(isChessbeardActive || isSpaceActive || isAdmiralGambitActive) && (
         <GameBtn onClick={actions.onUndo} variant="ghost">
           ✕ Cancel
         </GameBtn>

@@ -9,13 +9,14 @@ interface Props {
   onTestPowers?: () => void
   coins?: number
   onShop?: () => void
+  onRejoin?: () => void
 }
 
 const D = 'var(--font-display)'
 const B = 'var(--font-body)'
 const GOLD = 'var(--gold)'
 
-export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers, coins, onShop }: Props) {
+export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers, coins, onShop, onRejoin }: Props) {
   return (
     <div
       className="screen-bg min-h-screen flex flex-col items-center justify-center py-12 px-4"
@@ -115,6 +116,45 @@ export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, u
           Choose your game mode
         </p>
       </header>
+
+      {onRejoin && (
+        <div style={{
+          width: '100%', maxWidth: '672px',
+          marginBottom: '20px',
+          padding: '14px 20px',
+          borderRadius: '14px',
+          background: 'rgba(100,160,224,0.08)',
+          border: '1px solid rgba(100,160,224,0.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>🌐</span>
+            <div>
+              <div style={{ fontFamily: D, fontSize: '13px', fontWeight: 700, color: '#93c5fd', letterSpacing: '0.05em' }}>
+                Active Online Game
+              </div>
+              <div style={{ fontFamily: B, fontSize: '11px', color: 'rgba(147,197,253,0.7)', marginTop: '2px' }}>
+                Your last game is still in progress
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onRejoin}
+            style={{
+              fontFamily: D, fontSize: '12px', fontWeight: 700,
+              color: '#93c5fd', letterSpacing: '0.08em',
+              background: 'rgba(100,160,224,0.15)',
+              border: '1px solid rgba(100,160,224,0.4)',
+              borderRadius: '10px', padding: '8px 18px',
+              cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(100,160,224,0.25)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(100,160,224,0.15)' }}
+          >
+            Rejoin Game
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-5 w-full max-w-2xl">
         <ModeCard

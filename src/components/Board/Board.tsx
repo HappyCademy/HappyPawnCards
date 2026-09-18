@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { unlockAudio } from '../../utils/sounds'
 import type { Square as ChessSquare, PieceSymbol, Color } from 'chess.js'
 import type { BoardPiece, GameState, GameActions } from '../../hooks/useChessGame'
 import type { CardVariant } from '../../data/cards'
@@ -184,6 +185,7 @@ export default function Board({
   }
 
   function handleBoardPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    unlockAudio()
     if (status !== 'playing') return
     const sq = getSquareAt(e.clientX, e.clientY)
     if (!sq) return
