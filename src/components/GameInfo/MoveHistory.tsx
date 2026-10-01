@@ -5,10 +5,11 @@ interface Props {
 }
 
 export default function MoveHistory({ moves }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = containerRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [moves.length])
 
   const pairs: [string, string | undefined][] = []
@@ -21,17 +22,14 @@ export default function MoveHistory({ moves }: Props) {
       <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
         Move History
       </h3>
-      <div className="overflow-y-auto flex-1 min-h-0" style={{ maxHeight: '220px' }}>
+      <div ref={containerRef} className="overflow-y-auto flex-1 min-h-0" style={{ maxHeight: '220px' }}>
         {pairs.length === 0 ? (
           <p className="text-slate-500 text-sm italic">No moves yet</p>
         ) : (
           <table className="w-full text-sm">
             <tbody>
               {pairs.map(([white, black], i) => (
-                <tr
-                  key={i}
-                  className="border-b border-slate-700/50"
-                >
+                <tr key={i} className="border-b border-slate-700/50">
                   <td className="py-0.5 pr-2 text-slate-500 w-6 text-right">{i + 1}.</td>
                   <td className="py-0.5 px-2 text-slate-200 font-mono w-20">{white}</td>
                   <td className="py-0.5 px-2 text-slate-300 font-mono">{black ?? ''}</td>
@@ -40,7 +38,6 @@ export default function MoveHistory({ moves }: Props) {
             </tbody>
           </table>
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   )

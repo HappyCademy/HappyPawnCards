@@ -889,11 +889,11 @@ export default function App() {
             onCardClick={setZoomedCard}
           />
         )}
-        <CapturedPieces pieces={byBlack} capturedColor="w" advantage={blackAdvantage} />
-
         {/* Middle: board + sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-center gap-4 w-full">
-          <div className="flex items-center justify-center w-full lg:w-auto">
+          <div className="flex flex-col w-full lg:w-auto">
+            <CapturedPieces pieces={byBlack} capturedColor="w" advantage={blackAdvantage} />
+            <div className="flex items-center justify-center w-full lg:w-auto">
             <Board
               board={board}
               selectedSquare={selectedSquare}
@@ -924,6 +924,8 @@ export default function App() {
               showSpecialPieces={showSpecialPieces}
               onSpecialPieceClick={setFocusedSpecialCard}
             />
+            </div>
+            <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
           </div>
           <div className="w-full lg:w-64 flex-shrink-0">
             <GameInfo
@@ -938,8 +940,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bottom: white's captures + white/player cards */}
-        <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
+        {/* Bottom: player cards */}
         {pickedCards && pickedCards.player.length > 0 && (
           <CardStrip
             label={bottomLabel}
@@ -1085,9 +1086,8 @@ function CapturedPieces({ pieces, capturedColor, advantage, onPieceClick }: {
   onPieceClick?: (type: CaptureSymbol, index: number) => void
 }) {
   const { pieceSet } = usePieceSet()
-  if (pieces.length === 0 && advantage <= 0) return null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1px', minHeight: '22px', paddingLeft: '4px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1px', height: '22px', paddingLeft: '4px' }}>
       {pieces.map((type, i) => (
         <button
           key={i}
