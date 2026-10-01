@@ -13,13 +13,17 @@ import CampaignScreen, { CAMPAIGN_CHARS } from './components/Campaign/CampaignSc
 import DialogueScreen from './components/Campaign/DialogueScreen'
 import ShopScreen, { generatePackCards } from './components/Shop/ShopScreen'
 import CollectionScreen from './components/Collection/CollectionScreen'
+import PlayZoneScreen from './components/PlayZone/PlayZoneScreen'
+import PuzzleScreen from './components/Puzzle/PuzzleScreen'
+import BotChallengeScreen from './components/BotChallenge/BotChallengeScreen'
+import type { BotCharacterDef } from './data/botCharacters'
 import { RARITIES, ALL_CARDS, type CardVariant, pickRandomCards } from './data/cards'
 import { CARD_POWERS } from './data/powers'
 import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dialogue'
 import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 import { loadOnlineGame, loadActiveGameCache, clearActiveGame } from './lib/onlineGame'
 
-type AppScreen = 'mode' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
+type AppScreen = 'play-zone' | 'mode' | 'puzzles' | 'bot-challenge' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
 
 interface PickedCards {
   player: CardVariant[]
@@ -61,7 +65,7 @@ function pickTestHands(perPlayer: number): { player: CardVariant[]; ai: CardVari
 
 export default function App() {
   const auth = useAuth()
-  const [screen, setScreen] = useState<AppScreen>('mode')
+  const [screen, setScreen] = useState<AppScreen>('play-zone')
   const [pendingMode, setPendingMode] = useState<UiGameMode | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('vsComputer')
   const [pickedCards, setPickedCards] = useState<PickedCards | null>(null)
@@ -87,6 +91,12 @@ export default function App() {
   const [campaignLastResult, setCampaignLastResult] = useState<'win' | 'lose' | null>(null)
   const [pendingOnlinePicks, setPendingOnlinePicks] = useState<CardVariant[] | null>(null)
   const [onlineTimeControl, setOnlineTimeControl] = useState<number | null>(null)
+  const [botCharacter, setBotCharacter] = useState<BotCharacterDef | null>(null)
+  const [pendingBotAi, setPendingBotAi] = useState<CardVariant[] | null>(null)
+  const [commentaryLine, setCommentaryLine] = useState<string | null>(null)
+  const commentaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevCommentaryMoveCountRef = useRef(0)
+  const prevCommentaryIsCheckRef = useRef(false)
 
   const [coins, setCoins] = useState<number>(() => {
     try { return parseInt(localStorage.getItem('coins') ?? '0') || 0 } catch { return 0 }
@@ -169,10 +179,67 @@ export default function App() {
     aiCards,
     gameMode,
     onlineConfig: (isOnline && myColor) ? { myColor, onTurnComplete: writeMyTurn, timeControl: onlineDoc?.timeControlSeconds ?? onlineTimeControl } : undefined,
+    botDepth: botCharacter?.depth,
+    botRandomness: botCharacter?.randomness,
   })
 
   // Keep external-move ref fresh so useOnlineGame can call it
   useEffect(() => { externalMoveRef.current = applyExternalTurn }, [applyExternalTurn])
+
+  // ── Bot commentary ────────────────────────────────────────────────────────────
+  function showCommentaryLine(lines: string[], persist = false) {
+    if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
+    const line = lines[Math.floor(Math.random() * lines.length)]
+    setCommentaryLine(line)
+    if (!persist) {
+      commentaryTimerRef.current = setTimeout(() => setCommentaryLine(null), 3500)
+    }
+  }
+
+  // Intro when bot challenge game starts
+  useEffect(() => {
+    if (!botCharacter || screen !== 'game') return
+    prevCommentaryMoveCountRef.current = 0
+    prevCommentaryIsCheckRef.current = false
+    const t = setTimeout(() => showCommentaryLine(botCharacter.dialogue.intro), 400)
+    return () => clearTimeout(t)
+  }, [botCharacter?.characterId, screen])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Capture and check events
+  useEffect(() => {
+    if (!botCharacter || screen !== 'game' || status !== 'playing') return
+    if (moveHistory.length <= prevCommentaryMoveCountRef.current) return
+
+    const lastMoveStr = moveHistory[moveHistory.length - 1] ?? ''
+    const isCapture = lastMoveStr.includes('x')
+    const botJustMoved = turn === 'w'   // bot is black; after bot moves, it's white's turn
+    const playerJustMoved = turn === 'b'
+    const checkIsNew = isCheck && !prevCommentaryIsCheckRef.current
+
+    if (checkIsNew && botJustMoved) {
+      showCommentaryLine(botCharacter.dialogue.check)
+    } else if (checkIsNew && playerJustMoved) {
+      showCommentaryLine(botCharacter.dialogue.botInCheck)
+    } else if (isCapture && botJustMoved) {
+      showCommentaryLine(botCharacter.dialogue.botCaptures)
+    } else if (isCapture && playerJustMoved) {
+      showCommentaryLine(botCharacter.dialogue.playerCaptures)
+    }
+
+    prevCommentaryIsCheckRef.current = isCheck
+    prevCommentaryMoveCountRef.current = moveHistory.length
+  }, [moveHistory.length])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Game over commentary
+  useEffect(() => {
+    if (!botCharacter || screen !== 'game' || status === 'playing') return
+    if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
+    if (status === 'black-wins') {
+      setCommentaryLine(botCharacter.dialogue.botWins[Math.floor(Math.random() * botCharacter.dialogue.botWins.length)])
+    } else if (status === 'white-wins') {
+      setCommentaryLine(botCharacter.dialogue.playerWins[Math.floor(Math.random() * botCharacter.dialogue.playerWins.length)])
+    }
+  }, [status, screen])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-navigate when arriving via a join link (?join=gameId)
   useEffect(() => {
@@ -234,6 +301,8 @@ export default function App() {
 
   function handleModeSelect(mode: UiGameMode | 'sign-in') {
     setRejoinableGame(null)
+    setBotCharacter(null)
+    setPendingBotAi(null)
     if (mode === 'sign-in') { setScreen('sign-in'); return }
     if (GATED_MODES.includes(mode) && !auth.user) {
       setPendingMode(mode)
@@ -330,6 +399,10 @@ export default function App() {
         setPendingOnlinePicks(picks)
         setScreen('online-time')
       }
+    } else if (pendingBotAi) {
+      setPickedCards({ player: picks, ai: pendingBotAi })
+      setPendingBotAi(null)
+      setScreen('game')
     } else if (pendingCampaignAi) {
       setPickedCards({ player: picks, ai: pendingCampaignAi })
       setScreen('game')
@@ -364,6 +437,8 @@ export default function App() {
     setPickedCards(null)
     setPendingP1Cards(null)
     setConfirmedTurn('w')
+    setCommentaryLine(null)
+    if (commentaryTimerRef.current) { clearTimeout(commentaryTimerRef.current); commentaryTimerRef.current = null }
     setScreen('p1-selection')
   }
 
@@ -375,6 +450,14 @@ export default function App() {
     setPickedCards(null)
     setPendingP1Cards(null)
     setConfirmedTurn('w')
+    setCommentaryLine(null)
+    if (commentaryTimerRef.current) { clearTimeout(commentaryTimerRef.current); commentaryTimerRef.current = null }
+    if (botCharacter !== null) {
+      setBotCharacter(null)
+      setPendingBotAi(null)
+      setScreen('bot-challenge')
+      return
+    }
     if (opponent !== null && result !== null) {
       if (opponent.idx === 9) {
         setFinaleSceneIdx(0)
@@ -457,6 +540,39 @@ export default function App() {
 
   if (auth.loading) return null
 
+  if (screen === 'play-zone') {
+    return (
+      <PlayZoneScreen
+        onSelectCards={() => setScreen('mode')}
+        onSelectPuzzles={() => setScreen('puzzles')}
+        onSelectBotChallenge={() => setScreen('bot-challenge')}
+      />
+    )
+  }
+
+  if (screen === 'puzzles') {
+    return (
+      <PuzzleScreen onBack={() => setScreen('play-zone')} />
+    )
+  }
+
+  if (screen === 'bot-challenge') {
+    return (
+      <BotChallengeScreen
+        onSelect={(bot) => {
+          const botCards = bot.aiCardIds
+            .map(id => ALL_CARDS.find(c => c.id === id))
+            .filter((c): c is CardVariant => c !== undefined)
+          setBotCharacter(bot)
+          setPendingBotAi(botCards)
+          setGameMode('vsComputer')
+          setScreen('p1-selection')
+        }}
+        onBack={() => { setBotCharacter(null); setPendingBotAi(null); setScreen('play-zone') }}
+      />
+    )
+  }
+
   if (screen === 'sign-in') {
     return (
       <SignInScreen
@@ -488,6 +604,7 @@ export default function App() {
         coins={coins}
         onShop={() => setScreen('shop')}
         onRejoin={rejoinableGame ? handleRejoin : undefined}
+        onBack={() => setScreen('play-zone')}
       />
     )
   }
@@ -656,6 +773,7 @@ export default function App() {
         onDone={handleP1Done}
         onBack={() => {
           if (gameMode === 'online') { setGameMode('vsComputer'); setScreen('mode'); return }
+          if (botCharacter !== null) { setPendingBotAi(null); setScreen('bot-challenge'); return }
           if (!isCampaign) { setScreen('mode'); return }
           if (campaignOpponent!.idx === 9) {
             setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null)
@@ -667,15 +785,17 @@ export default function App() {
         playerLabel={
           gameMode === 'online'
             ? (pendingJoinId ? '🌐 Join Game — Pick 2 cards' : '🌐 Create Game — Pick 2 cards')
-            : isCampaign
-              ? campaignOpponent!.idx === 9
-                ? 'Final Battle — Pick 1 card'
-                : campaignOpponent!.chapter === 1
-                  ? `vs ${CHAR_NAMES[opponentName!]} — Pick 1 card`
-                  : `vs ${CHAR_NAMES[opponentName!]} — Pick 2 cards`
-              : gameMode === 'vsPlayer'
-                ? 'Player 1 (White) — Pick 2 cards'
-                : 'Pick 2 cards to bring into battle'
+            : botCharacter !== null
+              ? `⚔ vs ${botCharacter.displayName} — Pick 2 cards`
+              : isCampaign
+                ? campaignOpponent!.idx === 9
+                  ? 'Final Battle — Pick 1 card'
+                  : campaignOpponent!.chapter === 1
+                    ? `vs ${CHAR_NAMES[opponentName!]} — Pick 1 card`
+                    : `vs ${CHAR_NAMES[opponentName!]} — Pick 2 cards`
+                : gameMode === 'vsPlayer'
+                  ? 'Player 1 (White) — Pick 2 cards'
+                  : 'Pick 2 cards to bring into battle'
         }
         buttonLabel={gameMode === 'online' ? (pendingJoinId ? '⚔ Join Game' : '🔗 Create Link') : gameMode === 'vsPlayer' ? 'Continue →' : '⚔ Start Game'}
         ownedCardIds={isCampaign ? computeCampaignSelectableIds() : undefined}
@@ -735,7 +855,7 @@ export default function App() {
           }}
         />
         <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '11px', letterSpacing: '0.08em' }}>
-          {isVsPlayer ? 'VS Player' : isOnline ? 'Online' : campaignOpponent !== null ? 'Campaign' : 'VS Computer'}
+          {isVsPlayer ? 'VS Player' : isOnline ? 'Online' : botCharacter !== null ? `Bot Challenge · ${botCharacter.displayName}` : campaignOpponent !== null ? 'Campaign' : 'VS Computer'}
         </p>
       </header>
 
@@ -768,8 +888,13 @@ export default function App() {
       )}
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
-        {/* Top: black/AI cards + black's captures */}
-        {pickedCards && pickedCards.ai.length > 0 && (
+        {/* Top: bot portrait (bot challenge) OR AI cards (other modes) */}
+        {botCharacter ? (
+          <BotCommentaryPanel
+            bot={botCharacter}
+            line={commentaryLine}
+          />
+        ) : pickedCards && pickedCards.ai.length > 0 && (
           <CardStrip
             label={topLabel}
             cards={pickedCards.ai}
@@ -1067,6 +1192,61 @@ function CardStrip({ label, cards, accent, onCardClick }: {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function BotCommentaryPanel({ bot, line }: {
+  bot: BotCharacterDef
+  line: string | null
+}) {
+  return (
+    <div style={{
+      width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px',
+    }}>
+      {/* Portrait */}
+      <div style={{
+        flexShrink: 0, width: '54px', height: '72px', borderRadius: '8px', overflow: 'hidden',
+        border: `2px solid ${bot.themeColor}55`,
+        boxShadow: `0 0 12px ${bot.themeColor}33`,
+      }}>
+        <img
+          src={bot.portraitSrc}
+          alt={bot.displayName}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+        />
+      </div>
+
+      {/* Name + speech bubble */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontFamily: D, fontSize: '10px', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          color: bot.themeColor, margin: '0 0 4px',
+        }}>
+          {bot.displayName} · Lvl {bot.level}
+        </p>
+        <div style={{
+          position: 'relative',
+          background: 'rgba(255,255,255,0.04)',
+          border: `1px solid ${bot.themeColor}33`,
+          borderRadius: '10px',
+          padding: '6px 10px',
+          minHeight: '32px',
+          display: 'flex', alignItems: 'center',
+          transition: 'opacity 0.4s',
+          opacity: line ? 1 : 0.35,
+        }}>
+          <p style={{
+            fontFamily: B, fontSize: '12px', color: 'var(--ivory-dim)',
+            lineHeight: 1.4, margin: 0,
+            fontStyle: line ? 'normal' : 'italic',
+          }}>
+            {line ?? '...'}
+          </p>
+        </div>
       </div>
     </div>
   )

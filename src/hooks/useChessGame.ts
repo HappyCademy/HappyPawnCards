@@ -220,9 +220,11 @@ interface Options {
   aiCards?: CardVariant[]
   gameMode?: GameMode
   onlineConfig?: { myColor: 'w' | 'b'; onTurnComplete: (state: OnlineSyncState) => void; timeControl?: number | null }
+  botDepth?: number
+  botRandomness?: number
 }
 
-export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig }: Options): GameState & GameActions {
+export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0 }: Options): GameState & GameActions {
   const chessRef = useRef(new Chess())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validTargets, setValidTargets] = useState<Square[]>([])
@@ -1118,24 +1120,36 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
         moveHistoryRef.current.push(formatMoveNotation(before, powerMove.from, powerMove.to))
         bump()
       } else {
-        // Fall back to minimax
-        const bestMove = getBestMove(before.fen(), 1)
-        if (bestMove && bestMove.to !== immuneCQSquare) {
-          const moved = applyPseudoLegalMove(before, bestMove.from, bestMove.to)
+        // Optionally play a random move (for lower-difficulty bots)
+        const playRandom = botRandomness > 0 && Math.random() < botRandomness
+        const safeLegal = before.moves({ verbose: true }).filter((m: any) => m.to !== immuneCQSquare)
+
+        if (playRandom && safeLegal.length > 0) {
+          const pick = safeLegal[Math.floor(Math.random() * safeLegal.length)] as any
+          const moved = applyPseudoLegalMove(before, pick.from as Square, pick.to as Square)
           chessRef.current = withAIDeathAura(withRespawns(before, moved))
-          setLastMove({ from: bestMove.from, to: bestMove.to })
-          moveHistoryRef.current.push(formatMoveNotation(before, bestMove.from, bestMove.to))
+          setLastMove({ from: pick.from as Square, to: pick.to as Square })
+          moveHistoryRef.current.push(formatMoveNotation(before, pick.from as Square, pick.to as Square))
           bump()
-        } else if (immuneCQSquare) {
-          // Best move would capture immune CQ — fall back to a random legal move that doesn't
-          const safeMoves = before.moves({ verbose: true }).filter((m: any) => m.to !== immuneCQSquare)
-          if (safeMoves.length > 0) {
-            const pick = safeMoves[Math.floor(Math.random() * safeMoves.length)] as any
-            const moved = applyPseudoLegalMove(before, pick.from as Square, pick.to as Square)
+        } else {
+          // Fall back to minimax with configurable depth
+          const bestMove = getBestMove(before.fen(), botDepth)
+          if (bestMove && bestMove.to !== immuneCQSquare) {
+            const moved = applyPseudoLegalMove(before, bestMove.from, bestMove.to)
             chessRef.current = withAIDeathAura(withRespawns(before, moved))
-            setLastMove({ from: pick.from as Square, to: pick.to as Square })
-            moveHistoryRef.current.push(formatMoveNotation(before, pick.from as Square, pick.to as Square))
+            setLastMove({ from: bestMove.from, to: bestMove.to })
+            moveHistoryRef.current.push(formatMoveNotation(before, bestMove.from, bestMove.to))
             bump()
+          } else if (immuneCQSquare) {
+            // Best move would capture immune CQ — fall back to a random legal move that doesn't
+            if (safeLegal.length > 0) {
+              const pick = safeLegal[Math.floor(Math.random() * safeLegal.length)] as any
+              const moved = applyPseudoLegalMove(before, pick.from as Square, pick.to as Square)
+              chessRef.current = withAIDeathAura(withRespawns(before, moved))
+              setLastMove({ from: pick.from as Square, to: pick.to as Square })
+              moveHistoryRef.current.push(formatMoveNotation(before, pick.from as Square, pick.to as Square))
+              bump()
+            }
           }
         }
       }

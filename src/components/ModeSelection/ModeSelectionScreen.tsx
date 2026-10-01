@@ -10,13 +10,14 @@ interface Props {
   coins?: number
   onShop?: () => void
   onRejoin?: () => void
+  onBack?: () => void
 }
 
 const D = 'var(--font-display)'
 const B = 'var(--font-body)'
 const GOLD = 'var(--gold)'
 
-export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers, coins, onShop, onRejoin }: Props) {
+export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, userEmail, onCollection, onTestPowers, coins, onShop, onRejoin, onBack }: Props) {
   return (
     <div
       className="screen-bg min-h-screen flex flex-col items-center justify-center py-12 px-4"
@@ -226,6 +227,23 @@ export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, u
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.4)' }}
         >
           🧪 Test Powers
+        </button>
+      )}
+
+      {onBack && (
+        <button
+          onClick={onBack}
+          style={{
+            marginTop: '16px',
+            fontFamily: B, fontSize: '11px', fontWeight: 600,
+            color: 'rgba(138,117,96,0.4)', letterSpacing: '0.06em',
+            background: 'none', border: 'none', cursor: 'pointer',
+            transition: 'color 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.75)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.4)' }}
+        >
+          ← Play Zone
         </button>
       )}
 
