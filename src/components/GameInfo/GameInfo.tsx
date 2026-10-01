@@ -13,12 +13,13 @@ interface Props {
   showSpecialPieces?: boolean
   onToggleSpecialPieces?: () => void
   myColor?: 'w' | 'b' | null
+  botCharacterId?: string | null
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor }: Props) {
+export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacterId = null }: Props) {
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
@@ -67,7 +68,9 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
 
   let robiSrc: string | null = null
   if (!isVsPlayer && !isOnline) {
-    if (isGameOver) {
+    if (botCharacterId) {
+      robiSrc = `/images/characters/${botCharacterId}/basic-fullbody.png`
+    } else if (isGameOver) {
       robiSrc = status === 'black-wins' ? '/images/robi/robi-win.png' : '/images/robi/robi-lost.png'
     } else if (robiMood === 'thinking') {
       robiSrc = '/images/robi/robi-thinking.png'
@@ -253,10 +256,11 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           <img
             key={robiSrc}
             src={robiSrc}
-            alt="Robi"
+            alt={botCharacterId ? 'Character' : 'Robi'}
             style={{
-              height: '88px',
+              height: botCharacterId ? '110px' : '88px',
               objectFit: 'contain',
+              objectPosition: botCharacterId ? 'top' : 'center',
               animation: 'robi-pop 0.25s cubic-bezier(0.34,1.56,0.64,1)',
             }}
           />
@@ -285,6 +289,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           color="black"
           active={turn === 'b' && !isGameOver}
           timeLeft={turn === 'b' && !isGameOver ? timeLeft : undefined}
+          portraitSrc={botCharacterId ? `/images/characters/${botCharacterId}/basic-chibi.png` : undefined}
         />
       </div>
 
@@ -563,8 +568,8 @@ function GameBtn({ onClick, variant, children }: {
 
 // ── Player badge — kit player card style ──────────────────────────────────────
 
-function PlayerBadge({ label, color, active, timeLeft }: {
-  label: string; sublabel?: string; color: 'white' | 'black'; active: boolean; timeLeft?: number
+function PlayerBadge({ label, color, active, timeLeft, portraitSrc }: {
+  label: string; sublabel?: string; color: 'white' | 'black'; active: boolean; timeLeft?: number; portraitSrc?: string
 }) {
   const urgent = timeLeft !== undefined && timeLeft <= 10
   const timerStr = timeLeft !== undefined
@@ -618,8 +623,12 @@ function PlayerBadge({ label, color, active, timeLeft }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '22px', lineHeight: 1,
           border: '1.5px solid rgba(0,0,0,0.3)',
+          overflow: 'hidden',
         }}>
-          {pieceGlyph}
+          {portraitSrc
+            ? <img src={portraitSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+            : pieceGlyph
+          }
         </div>
       </div>
 

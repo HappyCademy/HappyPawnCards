@@ -933,6 +933,7 @@ export default function App() {
               showSpecialPieces={showSpecialPieces}
               onToggleSpecialPieces={() => setShowSpecialPieces(v => !v)}
               myColor={isOnline ? myColor : null}
+              botCharacterId={botCharacter?.characterId}
             />
           </div>
         </div>
@@ -967,6 +968,7 @@ export default function App() {
           gameMode={gameMode}
           myColor={myColor}
           isCampaign={campaignOpponent !== null}
+          botCharacterId={botCharacter?.characterId}
           onPlayAgain={handlePlayAgain}
           onChangeCards={handleChangeCards}
           onMainMenu={handleMainMenu}
@@ -1194,12 +1196,12 @@ function BotCommentaryPanel({ bot, line }: {
     }}>
       {/* Portrait */}
       <div style={{
-        flexShrink: 0, width: '54px', height: '72px', borderRadius: '8px', overflow: 'hidden',
+        flexShrink: 0, width: '60px', height: '84px', borderRadius: '8px', overflow: 'hidden',
         border: `2px solid ${bot.themeColor}55`,
         boxShadow: `0 0 12px ${bot.themeColor}33`,
       }}>
         <img
-          src={bot.portraitSrc}
+          src={`/images/characters/${bot.characterId}/basic-fullbody.png`}
           alt={bot.displayName}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
@@ -1239,13 +1241,14 @@ function BotCommentaryPanel({ bot, line }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, onPlayAgain, onChangeCards, onMainMenu }: {
+function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, onPlayAgain, onChangeCards, onMainMenu }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
   gameMode: GameMode
   myColor: 'w' | 'b' | null
   isCampaign: boolean
+  botCharacterId?: string | null
   onPlayAgain: () => void
   onChangeCards: () => void
   onMainMenu: () => void
@@ -1295,7 +1298,9 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   }
 
   const robiSrc = !isVsPlayer && !isOnline && !isDraw
-    ? (playerWins ? '/images/robi/robi-lost.png' : '/images/robi/robi-win.png')
+    ? botCharacterId
+      ? `/images/characters/${botCharacterId}/basic-fullbody.png`
+      : (playerWins ? '/images/robi/robi-lost.png' : '/images/robi/robi-win.png')
     : null
 
   // Visual theme per outcome
@@ -1365,7 +1370,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
 
         {/* Robi or emoji */}
         {robiSrc
-          ? <img src={robiSrc} alt="Robi" style={{ width: '120px', height: '120px', objectFit: 'contain', filter: `drop-shadow(0 0 20px ${outerGlow})` }} />
+          ? <img src={robiSrc} alt={botCharacterId ? 'Character' : 'Robi'} style={{ width: '120px', height: '120px', objectFit: botCharacterId ? 'cover' : 'contain', objectPosition: botCharacterId ? 'top' : 'center', borderRadius: botCharacterId ? '12px' : '0', filter: `drop-shadow(0 0 20px ${outerGlow})` }} />
           : <span style={{ fontSize: '64px', lineHeight: 1, filter: `drop-shadow(0 4px 16px rgba(0,0,0,0.6))` }}>
               {isDraw ? '🤝' : '🎉'}
             </span>
