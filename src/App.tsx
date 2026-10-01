@@ -92,7 +92,6 @@ export default function App() {
   const [pendingOnlinePicks, setPendingOnlinePicks] = useState<CardVariant[] | null>(null)
   const [onlineTimeControl, setOnlineTimeControl] = useState<number | null>(null)
   const [botCharacter, setBotCharacter] = useState<BotCharacterDef | null>(null)
-  const [pendingBotAi, setPendingBotAi] = useState<CardVariant[] | null>(null)
   const [commentaryLine, setCommentaryLine] = useState<string | null>(null)
   const commentaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCommentaryMoveCountRef = useRef(0)
@@ -302,7 +301,6 @@ export default function App() {
   function handleModeSelect(mode: UiGameMode | 'sign-in') {
     setRejoinableGame(null)
     setBotCharacter(null)
-    setPendingBotAi(null)
     if (mode === 'sign-in') { setScreen('sign-in'); return }
     if (GATED_MODES.includes(mode) && !auth.user) {
       setPendingMode(mode)
@@ -399,10 +397,6 @@ export default function App() {
         setPendingOnlinePicks(picks)
         setScreen('online-time')
       }
-    } else if (pendingBotAi) {
-      setPickedCards({ player: picks, ai: pendingBotAi })
-      setPendingBotAi(null)
-      setScreen('game')
     } else if (pendingCampaignAi) {
       setPickedCards({ player: picks, ai: pendingCampaignAi })
       setScreen('game')
@@ -454,7 +448,6 @@ export default function App() {
     if (commentaryTimerRef.current) { clearTimeout(commentaryTimerRef.current); commentaryTimerRef.current = null }
     if (botCharacter !== null) {
       setBotCharacter(null)
-      setPendingBotAi(null)
       setScreen('bot-challenge')
       return
     }
@@ -560,15 +553,12 @@ export default function App() {
     return (
       <BotChallengeScreen
         onSelect={(bot) => {
-          const botCards = bot.aiCardIds
-            .map(id => ALL_CARDS.find(c => c.id === id))
-            .filter((c): c is CardVariant => c !== undefined)
           setBotCharacter(bot)
-          setPendingBotAi(botCards)
+          setPickedCards({ player: [], ai: [] })
           setGameMode('vsComputer')
-          setScreen('p1-selection')
+          setScreen('game')
         }}
-        onBack={() => { setBotCharacter(null); setPendingBotAi(null); setScreen('play-zone') }}
+        onBack={() => { setBotCharacter(null); setScreen('play-zone') }}
       />
     )
   }
@@ -773,7 +763,6 @@ export default function App() {
         onDone={handleP1Done}
         onBack={() => {
           if (gameMode === 'online') { setGameMode('vsComputer'); setScreen('mode'); return }
-          if (botCharacter !== null) { setPendingBotAi(null); setScreen('bot-challenge'); return }
           if (!isCampaign) { setScreen('mode'); return }
           if (campaignOpponent!.idx === 9) {
             setCampaignOpponent(null); setPendingCampaignAi(null); setCampaignLastResult(null)
@@ -785,9 +774,7 @@ export default function App() {
         playerLabel={
           gameMode === 'online'
             ? (pendingJoinId ? '🌐 Join Game — Pick 2 cards' : '🌐 Create Game — Pick 2 cards')
-            : botCharacter !== null
-              ? `⚔ vs ${botCharacter.displayName} — Pick 2 cards`
-              : isCampaign
+            : isCampaign
                 ? campaignOpponent!.idx === 9
                   ? 'Final Battle — Pick 1 card'
                   : campaignOpponent!.chapter === 1
