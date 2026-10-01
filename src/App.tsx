@@ -1190,6 +1190,25 @@ function BotCommentaryPanel({ bot, line }: {
   bot: BotCharacterDef
   line: string | null
 }) {
+  const [displayed, setDisplayed] = useState('')
+  const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (tickRef.current) clearTimeout(tickRef.current)
+    if (!line) { setDisplayed(''); return }
+    let i = 0
+    setDisplayed('')
+    function step() {
+      i++
+      setDisplayed(line!.slice(0, i))
+      if (i < line!.length) tickRef.current = setTimeout(step, 28)
+    }
+    tickRef.current = setTimeout(step, 50)
+    return () => { if (tickRef.current) clearTimeout(tickRef.current) }
+  }, [line])
+
+  const isTyping = !!line && displayed.length < line.length
+
   return (
     <div style={{
       width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px',
@@ -1213,27 +1232,29 @@ function BotCommentaryPanel({ bot, line }: {
         <p style={{
           fontFamily: D, fontSize: '10px', fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.1em',
-          color: bot.themeColor, margin: '0 0 4px',
+          color: bot.themeColor, margin: '0 0 5px',
         }}>
           {bot.displayName} · Lvl {bot.level}
         </p>
         <div style={{
-          position: 'relative',
-          background: 'rgba(255,255,255,0.04)',
-          border: `1px solid ${bot.themeColor}33`,
+          background: 'rgba(13,10,26,0.88)',
+          border: `1.5px solid ${bot.themeColor}55`,
           borderRadius: '10px',
-          padding: '6px 10px',
-          minHeight: '32px',
+          padding: '8px 12px',
+          minHeight: '44px',
           display: 'flex', alignItems: 'center',
-          transition: 'opacity 0.4s',
-          opacity: line ? 1 : 0.35,
+          boxShadow: `0 2px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,
         }}>
           <p style={{
-            fontFamily: B, fontSize: '12px', color: 'var(--ivory-dim)',
-            lineHeight: 1.4, margin: 0,
+            fontFamily: B, fontSize: '14px',
+            color: line ? 'var(--ivory)' : 'rgba(200,185,165,0.35)',
+            lineHeight: 1.45, margin: 0,
             fontStyle: line ? 'normal' : 'italic',
           }}>
-            {line ?? '...'}
+            {line ? displayed : '...'}
+            {isTyping && (
+              <span style={{ opacity: 0.7, animation: 'blink-caret 0.6s step-end infinite' }}>▌</span>
+            )}
           </p>
         </div>
       </div>

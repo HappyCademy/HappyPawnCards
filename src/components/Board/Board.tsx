@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { unlockAudio } from '../../utils/sounds'
 import type { Square as ChessSquare, PieceSymbol, Color } from 'chess.js'
 import type { BoardPiece, GameState, GameActions } from '../../hooks/useChessGame'
@@ -177,6 +177,9 @@ export default function Board({
   const pendingRef = useRef<{ sq: ChessSquare; startX: number; startY: number } | null>(null)
   const draggingRef = useRef(false)
   const dragOverRef = useRef<ChessSquare | null>(null)
+  // Always-fresh ref to onSquareClick — avoids stale-closure issue in the drag two-click sequence
+  const onSquareClickRef = useRef(onSquareClick)
+  useLayoutEffect(() => { onSquareClickRef.current = onSquareClick }, [onSquareClick])
 
   function getSquareAt(x: number, y: number): ChessSquare | null {
     const el = document.elementFromPoint(x, y)
@@ -241,6 +244,7 @@ export default function Board({
       if (!pending) return
       if (wasDragging) {
         const toSq = getSquareAt(ue.clientX, ue.clientY)
+        // Select the piece (first click)
         onSquareClick(pending.sq)
         // Some powers require deliberate multi-step clicks — drag just selects the piece
         const colorCards = p.color === 'w' ? playerCards : aiCards
@@ -251,7 +255,11 @@ export default function Board({
         const isRobinRook   = p.type === 'r' && colorCards.some(c => CARD_POWERS[c.characterId]?.robinRookStay)
         const inSpecialMode = isChessbeardSelectMode || chessbeardSacrificeSquare !== null || isSpaceChessbeardFreezeMode
         if (toSq && toSq !== pending.sq && !isUnipopKnight && !isRobinRook && !inSpecialMode) {
-          onSquareClick(toSq)
+          // Defer the destination click until after React re-renders with the fresh selection state.
+          // useLayoutEffect keeps onSquareClickRef.current up-to-date, so this always uses the
+          // callback that closes over the newly-selected square and valid targets.
+          const sq = toSq
+          setTimeout(() => onSquareClickRef.current(sq), 0)
         }
       } else {
         onSquareClick(pending.sq)
