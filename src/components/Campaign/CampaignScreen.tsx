@@ -57,13 +57,13 @@ const PATH_POINTS = NODE_XY.map(([x, y]) => `${x},${y}`).join(' ')
 
 interface Props {
   progress: { ch1: number; ch2: number; ch3: number }
-  coins: number
+  tokens: number
   onSelectOpponent: (chapter: CampaignChapter, idx: number) => void
   onBack: () => void
   onShop: () => void
 }
 
-export default function CampaignScreen({ progress, coins, onSelectOpponent, onBack, onShop }: Props) {
+export default function CampaignScreen({ progress, tokens, onSelectOpponent, onBack, onShop }: Props) {
   const [activeChapter, setActiveChapter] = useState<CampaignChapter>(1)
 
   const ch2Locked = progress.ch1 < 9
@@ -105,7 +105,7 @@ export default function CampaignScreen({ progress, coins, onSelectOpponent, onBa
           Campaign
         </p>
 
-        {/* Coins + Shop */}
+        {/* Tokens + Shop */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -113,7 +113,7 @@ export default function CampaignScreen({ progress, coins, onSelectOpponent, onBa
             borderRadius: '20px', padding: '4px 12px',
           }}>
             <span style={{ fontSize: '12px' }}>🪙</span>
-            <span style={{ fontFamily: D, fontSize: '13px', fontWeight: 700, color: 'var(--gold)' }}>{coins.toLocaleString()}</span>
+            <span style={{ fontFamily: D, fontSize: '13px', fontWeight: 700, color: 'var(--gold)' }}>{tokens.toLocaleString()}</span>
           </div>
           <button
             onClick={onShop}

@@ -454,8 +454,8 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
         </div>
       )}
 
-      {/* ── Piece style ────────────────────────────────────────────────────── */}
-      <button
+      {/* ── Piece style — hidden in bot challenge (regular chess, no cards) ── */}
+      {!botCharacterId && <button
         onClick={() => setShowPiecePicker(true)}
         style={{
           width: '100%', padding: '8px', borderRadius: '12px',
@@ -468,9 +468,9 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(138,117,96,0.6)' }}
       >
         ♟ Piece Style
-      </button>
+      </button>}
 
-      {showPiecePicker && <PieceSetPicker onClose={() => setShowPiecePicker(false)} />}
+      {!botCharacterId && showPiecePicker && <PieceSetPicker onClose={() => setShowPiecePicker(false)} />}
 
       {/* ── Resign ─────────────────────────────────────────────────────────── */}
       {!isGameOver && (

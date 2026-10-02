@@ -104,6 +104,7 @@ export interface GameActions {
 function getStatus(chess: Chess): GameStatus {
   if (!isKingOnBoard(chess, 'w')) return 'black-wins'
   if (!isKingOnBoard(chess, 'b')) return 'white-wins'
+  if (chess.isCheckmate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
   if (chess.isStalemate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
   if (chess.isDraw()) return 'draw'
   return 'playing'

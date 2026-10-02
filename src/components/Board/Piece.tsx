@@ -36,8 +36,8 @@ export default function Piece({ type, color, cardImage, showSpecial }: Props) {
       alt={`${color}${type}`}
       draggable={false}
       style={{
-        width: '88%',
-        height: '88%',
+        width: '96%',
+        height: '96%',
         objectFit: 'contain',
         display: 'block',
         userSelect: 'none',

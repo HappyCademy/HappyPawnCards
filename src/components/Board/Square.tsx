@@ -178,6 +178,11 @@ export default function Square({
         <div style={{
           opacity: isDraggingFrom ? 0.25 : 1,
           animation: isRespawning ? 'pawn-rise 1.2s ease-out both' : undefined,
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}>
           <Piece
             type={piece.type}

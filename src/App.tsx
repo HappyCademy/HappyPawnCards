@@ -13,7 +13,6 @@ import CampaignScreen, { CAMPAIGN_CHARS } from './components/Campaign/CampaignSc
 import DialogueScreen from './components/Campaign/DialogueScreen'
 import ShopScreen, { generatePackCards } from './components/Shop/ShopScreen'
 import CollectionScreen from './components/Collection/CollectionScreen'
-import PlayZoneScreen from './components/PlayZone/PlayZoneScreen'
 import PuzzleScreen from './components/Puzzle/PuzzleScreen'
 import BotChallengeScreen from './components/BotChallenge/BotChallengeScreen'
 import type { BotCharacterDef } from './data/botCharacters'
@@ -23,7 +22,9 @@ import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dia
 import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 import { loadOnlineGame, loadActiveGameCache, clearActiveGame } from './lib/onlineGame'
 
-type AppScreen = 'play-zone' | 'mode' | 'puzzles' | 'bot-challenge' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
+type AppScreen = 'mode' | 'puzzles' | 'bot-challenge' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
+
+const PLAYGROUND_URL = 'https://hpc-dev.web.app/playground'
 
 interface PickedCards {
   player: CardVariant[]
@@ -65,7 +66,13 @@ function pickTestHands(perPlayer: number): { player: CardVariant[]; ai: CardVari
 
 export default function App() {
   const auth = useAuth()
-  const [screen, setScreen] = useState<AppScreen>('play-zone')
+  const [screen, setScreen] = useState<AppScreen>(() => {
+    const params = new URLSearchParams(window.location.search)
+    const start = params.get('start')
+    if (start === 'puzzles') return 'puzzles'
+    if (start === 'bots') return 'bot-challenge'
+    return 'mode'
+  })
   const [pendingMode, setPendingMode] = useState<UiGameMode | null>(null)
   const [gameMode, setGameMode] = useState<GameMode>('vsComputer')
   const [pickedCards, setPickedCards] = useState<PickedCards | null>(null)
@@ -97,8 +104,8 @@ export default function App() {
   const prevCommentaryMoveCountRef = useRef(0)
   const prevCommentaryIsCheckRef = useRef(false)
 
-  const [coins, setCoins] = useState<number>(() => {
-    try { return parseInt(localStorage.getItem('coins') ?? '0') || 0 } catch { return 0 }
+  const [tokens, setTokens] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem('tokens') ?? '0') || 0 } catch { return 0 }
   })
 
   const [ownedCardIds, setOwnedCardIds] = useState<Set<string>>(() => {
@@ -114,7 +121,7 @@ export default function App() {
   const [showSpecialPieces, setShowSpecialPieces] = useState(false)
   const [focusedSpecialCard, setFocusedSpecialCard] = useState<CardVariant | null>(null)
 
-  const coinsAwardedRef = useRef(false)
+  const tokensAwardedRef = useRef(false)
 
   // Online multiplayer — read ?join=gameId from URL on first load
   const [pendingJoinId] = useState<string | null>(() => {
@@ -474,12 +481,12 @@ export default function App() {
   }
 
   function handleBuyPack(): CardVariant[] {
-    const PACK_COST = 100
-    if (coins < PACK_COST) return []
+    const PACK_COST = 10
+    if (tokens < PACK_COST) return []
     const cards = generatePackCards()
-    setCoins(prev => {
+    setTokens(prev => {
       const next = prev - PACK_COST
-      localStorage.setItem('coins', next.toString())
+      localStorage.setItem('tokens', next.toString())
       return next
     })
     setOwnedCardIds(prev => {
@@ -492,16 +499,16 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (status === 'playing') { coinsAwardedRef.current = false; return }
+    if (status === 'playing') { tokensAwardedRef.current = false; return }
     if (screen !== 'game') return
-    if (coinsAwardedRef.current) return
-    coinsAwardedRef.current = true
+    if (tokensAwardedRef.current) return
+    tokensAwardedRef.current = true
 
     const isCampaignWin = campaignOpponent !== null && status === 'white-wins'
-    const coinsEarned = status === 'white-wins' ? (isCampaignWin ? 80 : 50) : status === 'draw' ? 20 : 15
-    setCoins(prev => {
-      const next = prev + coinsEarned
-      localStorage.setItem('coins', next.toString())
+    const tokensEarned = status === 'white-wins' ? (isCampaignWin ? 80 : 50) : status === 'draw' ? 20 : 15
+    setTokens(prev => {
+      const next = prev + tokensEarned
+      localStorage.setItem('tokens', next.toString())
       return next
     })
 
@@ -533,19 +540,9 @@ export default function App() {
 
   if (auth.loading) return null
 
-  if (screen === 'play-zone') {
-    return (
-      <PlayZoneScreen
-        onSelectCards={() => setScreen('mode')}
-        onSelectPuzzles={() => setScreen('puzzles')}
-        onSelectBotChallenge={() => setScreen('bot-challenge')}
-      />
-    )
-  }
-
   if (screen === 'puzzles') {
     return (
-      <PuzzleScreen onBack={() => setScreen('play-zone')} />
+      <PuzzleScreen onBack={() => { window.location.href = PLAYGROUND_URL }} />
     )
   }
 
@@ -558,7 +555,7 @@ export default function App() {
           setGameMode('vsComputer')
           setScreen('game')
         }}
-        onBack={() => { setBotCharacter(null); setScreen('play-zone') }}
+        onBack={() => { setBotCharacter(null); window.location.href = PLAYGROUND_URL }}
       />
     )
   }
@@ -591,10 +588,10 @@ export default function App() {
         onSignOut={() => auth.signOut()}
         onCollection={() => setScreen('collection')}
         onTestPowers={handleTestPowers}
-        coins={coins}
+        tokens={tokens}
         onShop={() => setScreen('shop')}
         onRejoin={rejoinableGame ? handleRejoin : undefined}
-        onBack={() => setScreen('play-zone')}
+        onBack={() => { window.location.href = PLAYGROUND_URL }}
       />
     )
   }
@@ -603,7 +600,7 @@ export default function App() {
     return (
       <CampaignScreen
         progress={campaignProgress}
-        coins={coins}
+        tokens={tokens}
         onSelectOpponent={handleCampaignNodeClick}
         onBack={() => { setCampaignOpponent(null); setPendingCampaignAi(null); setScreen('mode') }}
         onShop={() => setScreen('shop')}
@@ -615,7 +612,7 @@ export default function App() {
     const shopOrigin: AppScreen = campaignOpponent !== null ? 'campaign' : 'mode'
     return (
       <ShopScreen
-        coins={coins}
+        tokens={tokens}
         ownedCardIds={ownedCardIds}
         onBuyPack={handleBuyPack}
         onBack={() => setScreen(shopOrigin)}
@@ -933,7 +930,7 @@ export default function App() {
               actions={actions}
               focusedSpecialCard={focusedSpecialCard}
               showSpecialPieces={showSpecialPieces}
-              onToggleSpecialPieces={() => setShowSpecialPieces(v => !v)}
+              onToggleSpecialPieces={!botCharacter ? () => setShowSpecialPieces(v => !v) : undefined}
               myColor={isOnline ? myColor : null}
               botCharacterId={botCharacter?.characterId}
             />

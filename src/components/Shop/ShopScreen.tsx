@@ -5,7 +5,7 @@ import { RARITIES } from '../../data/cards'
 const D = 'var(--font-display)'
 const B = 'var(--font-body)'
 
-const PACK_COST = 100
+const PACK_COST = 10
 const PACK_RARITIES: Rarity[] = ['baby', 'fullart', 'golden']
 
 // Weighted rarity distribution for a pack (out of 100)
@@ -186,17 +186,17 @@ function BoosterPackOpen({ cards, ownedBefore, onClose }: {
 // ── Main shop screen ──────────────────────────────────────────────────────────
 
 interface Props {
-  coins: number
+  tokens: number
   ownedCardIds: Set<string>
   onBuyPack: () => CardVariant[]
   onBack: () => void
 }
 
-export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: Props) {
+export default function ShopScreen({ tokens, ownedCardIds, onBuyPack, onBack }: Props) {
   const [openedPack, setOpenedPack] = useState<{ cards: CardVariant[]; ownedBefore: Set<string> } | null>(null)
 
   function handleBuy() {
-    if (coins < PACK_COST) return
+    if (tokens < PACK_COST) return
     const ownedBefore = new Set(ownedCardIds)
     const cards = onBuyPack()
     if (cards.length > 0) {
@@ -204,7 +204,7 @@ export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: P
     }
   }
 
-  const canAfford = coins >= PACK_COST
+  const canAfford = tokens >= PACK_COST
 
   return (
     <div className="screen-bg min-h-screen flex flex-col items-center py-8 px-4">
@@ -232,7 +232,7 @@ export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: P
           Card Shop
         </p>
 
-        {/* Coin balance */}
+        {/* Token balance */}
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
           background: 'rgba(201,162,39,0.1)', border: '1px solid rgba(201,162,39,0.35)',
@@ -240,9 +240,9 @@ export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: P
         }}>
           <span style={{ fontSize: '14px' }}>🪙</span>
           <span style={{ fontFamily: D, fontSize: '15px', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em' }}>
-            {coins.toLocaleString()}
+            {tokens.toLocaleString()}
           </span>
-          <span style={{ fontFamily: B, fontSize: '10px', color: 'rgba(201,162,39,0.55)', letterSpacing: '0.04em' }}>coins</span>
+          <span style={{ fontFamily: B, fontSize: '10px', color: 'rgba(201,162,39,0.55)', letterSpacing: '0.04em' }}>tokens</span>
         </div>
       </header>
 
@@ -333,12 +333,12 @@ export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: P
 
         {!canAfford && (
           <p style={{ fontFamily: B, fontSize: '11px', color: 'rgba(248,113,113,0.6)', textAlign: 'center', marginTop: '8px' }}>
-            Need {PACK_COST - coins} more coins — keep playing to earn!
+            Need {PACK_COST - tokens} more tokens — keep playing to earn!
           </p>
         )}
       </div>
 
-      {/* How to earn coins */}
+      {/* How to earn tokens */}
       <div style={{
         width: '100%', maxWidth: '340px', marginTop: '16px',
         background: 'rgba(8,5,20,0.6)',
@@ -346,17 +346,17 @@ export default function ShopScreen({ coins, ownedCardIds, onBuyPack, onBack }: P
         borderRadius: '14px', padding: '16px',
       }}>
         <p style={{ fontFamily: D, fontSize: '10px', color: 'rgba(201,162,39,0.55)', letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 10px' }}>
-          How to earn coins
+          How to earn tokens
         </p>
         {[
-          { icon: '⚔', label: 'Campaign Win', coins: '+80' },
-          { icon: '🎮', label: 'VS Computer Win', coins: '+50' },
-          { icon: '🤝', label: 'Draw', coins: '+20' },
-          { icon: '♟', label: 'Any Loss', coins: '+15' },
-        ].map(({ icon, label, coins: c }) => (
+          { icon: '⚔', label: 'Campaign Win', amount: '+80' },
+          { icon: '🎮', label: 'VS Computer Win', amount: '+50' },
+          { icon: '🤝', label: 'Draw', amount: '+20' },
+          { icon: '♟', label: 'Any Loss', amount: '+15' },
+        ].map(({ icon, label, amount }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
             <span style={{ fontFamily: B, fontSize: '12px', color: 'var(--ivory-dim)' }}>{icon} {label}</span>
-            <span style={{ fontFamily: D, fontSize: '12px', fontWeight: 700, color: 'var(--gold)' }}>{c}</span>
+            <span style={{ fontFamily: D, fontSize: '12px', fontWeight: 700, color: 'var(--gold)' }}>{amount}</span>
           </div>
         ))}
       </div>

@@ -2,27 +2,32 @@
 
 ## Project overview
 
-A digital chess card game where players pick 2 character cards before the match, each granting unique powers that bend chess rules. Currently supports VS Computer (minimax AI) and VS Player (pass-and-play). The long-term goal is a full online multiplayer product with accounts, ratings, a queue system, and rich social features.
-
-This game is part of the **HappyCademy** ecosystem (a children's chess/STEM academy in Bangkok). The integration plan (see below) connects HappyPawnCards to the existing HappyCademy account and token system.
+A digital chess card game where players pick 2 character cards before the match, each granting unique powers that bend chess rules. Supports VS Computer (minimax AI), VS Player (pass-and-play), and **Online multiplayer** (real-time via Firestore + URL sharing). Part of the **HappyCademy** ecosystem (a children's chess/STEM academy in Bangkok).
 
 ## Tech stack
 
 - **Vite + React 18 + TypeScript** (strict)
 - **Tailwind CSS v4** — import style: `@import "tailwindcss"` (no config file)
 - **chess.js v1.4.0** — IMPORTANT: constructor throws if a king is missing from FEN. Always use `new Chess(fen, { skipValidation: true })` when constructing from a custom FEN that may lack a king (e.g. after king capture).
-- **Firebase SDK v12** — already installed and wired. `src/lib/firebase.ts` initialises the app (dev vs prod auto-detected via `import.meta.env.PROD`). Auth only for now; Firestore not yet used in-game.
-- **Deployed to Vercel** via `npx vercel --prod`. Staying on Vercel (not moving to Firebase Hosting — no meaningful gain for a pure Vite SPA).
+- **Firebase SDK v12** — Auth + Firestore (both in use). `src/lib/firebase.ts` initialises the app using `VITE_FIREBASE_ENV === 'production'` to select dev (`happy-app-dev-f90a0`) vs prod (`happy-app-prod-e2636`). **Vercel has no `VITE_FIREBASE_ENV` env var set → always uses dev Firebase.**
+- **Deployed to Vercel** via `npx vercel --prod`. Staying on Vercel (not moving to Firebase Hosting).
+
+## Firebase / Firestore — critical notes
+
+- Dev project: `happy-app-dev-f90a0` | Prod project: `happy-app-prod-e2636`
+- **Vercel deployment uses dev Firebase** — no `VITE_FIREBASE_ENV` set in Vercel env vars.
+- **Always pass `--project dev` or `--project prod` explicitly** with Firebase CLI. The CLI's global project selection overrides `.firebaserc` — never trust the default.
+- Dev rules (`happy-functions/firestore.rules`): permissive catch-all `allow read, write: if request.auth != null`.
+- Prod rules (`happy-app/firestore.rules`): explicit per-collection rules including `online_games`.
+- `online_games` collection is in **dev Firestore** (where the live game data lives).
+- `src/lib/firestore.ts` exports the `db` instance.
 
 ## Authentication — already implemented
 
-Firebase Auth is live. Key files:
-- `src/lib/firebase.ts` — initialises Firebase (dev: `happy-app-dev-f90a0`, prod: `happy-app-prod-e2636`) — same Firebase projects as the Flutter app and Cloud Run backend
+- `src/lib/firebase.ts` — Firebase init
 - `src/hooks/useAuth.ts` — `onAuthStateChanged`, `signIn(email, password)`, `signOut()`
-- `src/components/Auth/SignInScreen.tsx` — complete sign-in UI, email/password, friendly error messages
-- `App.tsx` — gates certain modes behind login, passes `auth.user` / `userEmail` / `onSignOut` down to screens
-
-Students log in with their existing HappyCademy account. No new account system needed.
+- `src/components/Auth/SignInScreen.tsx` — complete sign-in UI
+- `App.tsx` — gates campaign mode behind login; passes `auth.user` / `userEmail` / `onSignOut` down
 
 ## Architecture
 
@@ -30,12 +35,12 @@ Students log in with their existing HappyCademy account. No new account system n
 
 ```
 'mode' screen → ModeSelectionScreen
-  ↓ vsComputer: 'p1-selection' → CardSelectionScreen (player picks 2)
-  ↓ vsPlayer:   'p1-selection' → 'p2-selection' → CardSelectionScreen × 2
-  ↓ 'game' screen
+  ↓ vsComputer:  'p1-selection' → CardSelectionScreen → 'game'
+  ↓ vsPlayer:    'p1-selection' → 'p2-selection' → CardSelectionScreen × 2 → 'game'
+  ↓ online/host: 'p1-selection' → 'online-time' (time control picker) → createGame → 'game'
+  ↓ online/join: 'p1-selection' → joinGame (via URL ?join=gameId) → 'game'
+  ↓ campaign:    'campaign' → 'pre-dialogue' / 'finale-dialogue' → 'p1-selection' → 'game'
 ```
-
-Campaign flow also exists — see Campaign section below.
 
 ### Game hook (src/hooks/useChessGame.ts)
 
@@ -44,68 +49,123 @@ Central state machine. Returns `GameState & GameActions`. Key logic:
 - `currentCards`: in vsPlayer, follows whose turn it is; in vsComputer, always the human player's cards
 - `withRespawns(before, after)`: wraps every move to apply General Gambit pawn respawning
 - `clearSelection()`: resets all selection/mode state (selected square, valid targets, all special mode flags)
-- Special move modes handled via dedicated state flags: `unipopState`, `isRookShootMode`, `rookChoiceSquare`, `blackKingBonusSquare`, `isChessbeardSelectMode`, `chessbeardSacrificeSquare`
+- Special move modes handled via dedicated state flags:
+  - `unipopState`, `unipopBonusSquare` — Unipop L-path and legendary double jump
+  - `isRookShootMode`, `rookChoiceSquare` — Robin Rook shoot
+  - `blackKingBonusSquare` — Black King bonus move
+  - `isChessbeardSelectMode`, `chessbeardSacrificeSquare` — Chessbeard sacrifice
+  - `isSpaceHappyPawnPlaceMode` — Space Happy Pawn reserve placement
+  - `isSpaceChessbeardFreezeMode`, `spaceChessbeardFrozenSquare` — Space Chessbeard freeze
+  - `isAdmiralGambitPawnSelectMode`, `admiralGambitPawnSquare` — Admiral Gambit (legendary General Gambit) pawn sacrifice teleport
+  - `crystalQueenVulnerable` — tracks whether Crystal Queen's Space immune power is active
+  - `legendaryHappyPawnPromoteSquare` — pending promotion square for Legendary Happy Pawn
 - Win condition: `isKingOnBoard()` — king absence = victory, not checkmate. **Stalemate = loss for the stalemated player** (not draw).
 - AI moves via `getBestMove(fen, depth=1)` in a `useEffect` on `tick`
-- **Move history**: maintained in `moveHistoryRef` (separate from `chess.history()` which is always empty due to FEN-based moves). Format: `e2-e4` / `Nf3xe5`. Recorded in `completeTurn()` and in the AI effect. Undo restores history count via `fenHistoryRef` snapshot (now stores `{ fen, moveCount }` instead of just `fen`).
+- **Move history**: maintained in `moveHistoryRef` (separate from `chess.history()` which is always empty due to FEN-based moves). Format: `e2-e4` / `Nf3xe5`. Undo restores history count via `fenHistoryRef` (stores `{ fen, moveCount }`).
+- **Online sync**: `completeTurn` writes `OnlineSyncState` via `onlineConfig.onTurnComplete`. Timer pauses during opponent's online turn. `lastReceivedTimeRef` carries opponent's time pool across turns.
 
 ### Board interaction (src/components/Board/Board.tsx)
 
-All clicks go through `handleBoardPointerDown` on the board div — **Square.tsx has no `onClick`**. This prevents the double-call bug (pointer events + click events both firing `onSquareClick`, causing state to undo itself). `e.preventDefault()` is called for ALL board clicks (before the piece check) to suppress the synthetic `click` event.
+All clicks go through `handleBoardPointerDown` on the board div — **Square.tsx has no `onClick`**. This prevents the double-call bug. `e.preventDefault()` is called for ALL board clicks (before any piece check) to suppress the synthetic `click` event.
+
+**iOS AudioContext unlock**: `unlockAudio()` is called at the very top of `handleBoardPointerDown` before any early returns — must happen inside a direct user gesture handler.
+
+Drag-and-drop is fully implemented: dragging a piece works as selecting it; multi-step powers (Unipop, Robin Rook, Chessbeard) require click-click for the second step.
+
+### Sounds (src/utils/sounds.ts)
+
+Fully implemented. Exports: `playMove()`, `playCapture()`, `playCheck()`, `playPower()`, `playWin()`, `playLose()`, `playTimerTick()`, `unlockAudio()`. All wired into `useChessGame.ts`. Power activation sound (`playPower()`) triggered on entering each special mode state.
+
+### Online multiplayer (src/hooks/useOnlineGame.ts + src/lib/onlineGame.ts)
+
+Live via Firestore. Flow:
+1. Host picks cards → `'online-time'` screen (3 min / 5 min / 10 min / No limit) → `createGame()` → gets `gameId`
+2. Host shares URL (`?join=gameId`), opponent opens it → `joinGame()` — both enter `'game'` screen
+3. Moves synced via `OnlineGameDoc.sync` (the `OnlineSyncState` object written on each turn)
+4. Heartbeat (`wHeartbeat`/`bHeartbeat`) written every 15s via `serverTimestamp()`. Age checked on Firestore updates and every 15s locally. `>45s → 'maybe'`, `>90s → 'likely'`. "Claim Win" button appears at 'likely'.
+5. `claimWinByDisconnect()` writes `resignedBy` to Firestore → opponent sees loss.
+6. Active game cached in `localStorage` (`hpc_active_game`) for page-refresh rejoin.
+
+Key types:
+```ts
+// In useChessGame.ts
+export interface OnlineSyncState {
+  fen: string; moveHistory: string[]; lastMove: [string, string] | null
+  crystalQueenVulnerable: boolean; spaceChessbeardFrozenSquare: string | null
+  status: GameStatus; resignedBy: 'w' | 'b' | null; timedOut?: 'w' | 'b' | null
+  timeRemainingW?: number | null; timeRemainingB?: number | null
+}
+// In onlineGame.ts
+export interface OnlineGameDoc {
+  white: string; black: string | null; whiteDisplayName: string | null; blackDisplayName: string | null
+  status: 'waiting' | 'playing' | 'white-wins' | 'black-wins' | 'draw'
+  whiteCards: CardVariant[]; blackCards: CardVariant[] | null
+  sync: OnlineSyncState; timeControlSeconds: number | null
+  wHeartbeat?: Timestamp | null; bHeartbeat?: Timestamp | null
+}
+```
 
 ### Engine files (src/engine/)
 
-Each power has its own file with three functions: `get<X>Targets`, `apply<X>Move`, and helpers.
-
-| File | Power |
-|------|-------|
+| File | Powers |
+|------|--------|
 | `pseudolegal.ts` | Base pseudo-legal moves (ignores check) + `isKingOnBoard` |
 | `minimax.ts` | AI — minimax with alpha-beta |
-| `unipop.ts` | Knight L-path (step-by-step, destroys pieces in path) |
-| `robinrook.ts` | Rook shoot-in-place |
-| `puzzlepete.ts` | Bishop bounces off board edges |
-| `blackking.ts` | King captures friendly pieces + bonus move |
-| `happypawn.ts` | Pawn pushes all pieces on file forward; off-board = dead |
-| `chessbeard.ts` | Sacrifice own piece to destroy lower-value enemy |
+| `aipowers.ts` | AI power move selection for all 10 characters |
+| `unipop.ts` | L-Path (base), Phase Jump (legendary), Double Jump (space) |
+| `robinrook.ts` | Shoot (base), Cannon/legendary moves, Cosmic Volley (space all-dir) |
+| `puzzlepete.ts` | Bounce (base) |
+| `piratequeen.ts` | Bouncing Queen (legendary upgrade of Puzzle Pete) |
+| `blackking.ts` | Royal Gambit (base), Death Aura (legendary), Cosmic King (space) |
+| `happypawn.ts` | Push (base), Early Promotion (legendary), Reserve placement (space) |
+| `chessbeard.ts` | Sacrifice (base), Even Trade (legendary), Freeze (space) |
+| `crystalqueen.ts` | Royal Switch (base), Pawn Switch (legendary), Phantom Queen (space) |
+| `kingsguard.ts` | Pawn Shield (base), Strike Check (legendary), Pawn Wall (space) |
 
 ### Card system (src/data/)
 
 - `cards.ts` — `CardVariant` type, `RARITIES` list, `getCardsByRarity()`, `pickRandomCards()`
 - `powers.ts` — `CARD_POWERS` map (`characterId → CardPowerDef`), piece image exports
 
-## Card powers
+## Card powers — all 27 implemented ✅
 
 Each character has **3 powers** tied to card variant rarity:
 - **Base power** — regular, baby, full-art, foil, golden
 - **Legendary power** — legendary and secret legendary variants
-- **Space power** — space variant (newly released)
+- **Space power** — space variant
 
-That's 9 characters × 3 powers = **27 powers total**.
+Note: Puzzle Pete's legendary rarity upgrades to a different character (Pirate Queen). All others upgrade in-place.
 
-| Character | Piece | Base power (flag) | Legendary power | Space power |
-|-----------|-------|-------------------|-----------------|-------------|
-| Happy Pawn | Pawn | `happyPawnPush` ✅ | ❌ not designed | ❌ not designed |
-| Unipop | Knight | `unipopLPath` ✅ | ❌ not designed | ❌ not designed |
-| Puzzle Pete | Bishop | `puzzlePeteBounce` ✅ | ❌ not designed | ❌ not designed |
-| Robin Rook | Rook | `robinRookStay` ✅ | ❌ not designed | ❌ not designed |
-| Crystal Queen | Queen | ❌ not designed | ❌ not designed | ❌ not designed |
-| Black King | King | `blackKingCapture` ✅ | ❌ not designed | ❌ not designed |
-| King's Guard | King | ❌ not designed | ❌ not designed | ❌ not designed |
-| General Gambit | (any) | `generalGambitRespawn` ✅ | ❌ not designed | ❌ not designed |
-| Chessbeard | (any) | `chessbeardSacrifice` ✅ | ❌ not designed | ❌ not designed |
+| Character | Piece | Base power | Legendary power | Space power |
+|-----------|-------|-----------|-----------------|-------------|
+| Happy Pawn | Pawn | `happyPawnPush` — Push ✅ | Early Promotion ✅ | Reserve ✅ |
+| Unipop | Knight | `unipopLPath` — L-Path ✅ | Phase Jump ✅ | Double Jump ✅ |
+| Puzzle Pete | Bishop | `puzzlePeteBounce` — Bounce ✅ | → upgrades to Pirate Queen ✅ | Stacking ✅ |
+| Pirate Queen | Queen | `pirateQueenBounce` — Bouncing Queen ✅ | (Pirate Queen IS Puzzle Pete's legendary) | — |
+| Robin Rook | Rook | `robinRookStay` — Shoot ✅ | Cannon ✅ | Cosmic Volley ✅ |
+| Crystal Queen | Queen | `crystalQueenSwap` — Royal Switch ✅ | Pawn Switch ✅ | Phantom Queen ✅ |
+| Black King | King | `blackKingCapture` — Royal Gambit ✅ | Death Aura ✅ | Cosmic King ✅ |
+| King's Guard | King | `kingsGuardBlock` — Pawn Shield ✅ | Strike Check ✅ | Pawn Wall ✅ |
+| General Gambit | (any) | `generalGambitRespawn` — Respawn ✅ | Pawn Sacrifice ✅ | Admiral Respawn ✅ |
+| Chessbeard | (any) | `chessbeardSacrifice` — Sacrifice ✅ | Even Trade ✅ | Freeze ✅ |
 
-**Same-piece restriction**: two cards sharing the same `pieceSymbol` cannot be picked together (enforced in `CardSelectionScreen`).
+**Same-piece restriction**: two cards sharing the same `pieceSymbol` cannot be picked together (enforced in `CardSelectionScreen`). Crystal Queen and Pirate Queen both use `'q'`.
 
 ## Key constraints & gotchas
 
-- **`skipValidation: true`** is required whenever constructing a `Chess` from a FEN that might be missing a king. This applies to ALL engine files. Without it, chess.js v1 throws.
-- **No check-based win**: the game uses king capture as the win condition. `isCheck()` still works for UI hints, but checkmate/stalemate are irrelevant.
+- **`skipValidation: true`** is required whenever constructing a `Chess` from a FEN that might be missing a king. This applies to ALL engine files.
+- **No check-based win**: king capture = win. `isCheck()` still works for UI hints only.
 - **Stalemate = loss** for the player who can't move (`getStatus` checks `chess.isStalemate()` before `chess.isDraw()`).
-- **AI (vsComputer) only plays Black**. The AI effect is gated by `chess.turn() === 'b'`.
+- **AI (vsComputer) only plays Black**. AI effect gated by `chess.turn() === 'b'`.
 - **vsPlayer mode**: `currentCards` switches to each player's cards based on `chess.turn()`. `playerCards` = White's cards, `aiCards` = Black's cards (despite the name).
-- **General Gambit respawn bug (fixed)**: `capturedPawnFiles()` previously counted pawns per file, so a diagonal pawn capture (pawn moves to a different file) was wrongly detected as a captured pawn and triggered a spurious respawn. Fixed: the function now compares total pawn count first — if total didn't decrease, no pawn was actually captured.
-- **FEN manipulation**: all custom moves directly edit FEN strings. Pattern: split on `' '`, edit position part, join back. FEN row index = `7 - rank`.
-- **Double-click bug (fixed)**: `Square.tsx` has no `onClick`. All clicks are handled by `handleBoardPointerDown` on the Board div with `e.preventDefault()` called before any piece checks.
+- **General Gambit respawn bug (fixed)**: `capturedPawnFiles()` compares total pawn count first — if total didn't decrease, no capture, no respawn.
+- **Admiral Gambit `noRespawn`**: `completeTurn(before, after, fromSq, toSq, noRespawn = false)` — the Admiral Gambit pawn sacrifice passes `noRespawn = true` to prevent triggering General Gambit respawn on its own sacrificed pawn.
+- **Resign color online**: `onResign` uses `onlineConfig?.myColor ?? chess.turn()` — NOT `chess.turn()` alone, which would be wrong during the opponent's turn.
+- **FEN manipulation**: all custom moves directly edit FEN strings. Split on `' '`, edit position part, join back. FEN row index = `7 - rank`.
+- **Double-click bug (fixed)**: `Square.tsx` has no `onClick`. All clicks via `handleBoardPointerDown` on Board div.
+- **iOS audio**: `unlockAudio()` must be called at the top of `handleBoardPointerDown` before any early returns.
+- **Crystal Queen Phantom Queen (space)**: `crystalQueenVulnerable` state in `useChessGame` + `OnlineSyncState` tracks whether she's currently capturable after taking a piece.
+- **`timedOutSyncedRef`**: ensures timeout result is synced to opponent exactly once (parallel to `resignSyncedRef`).
 
 ## Campaign mode
 
@@ -113,12 +173,14 @@ Single-player story campaign. 10 nodes (indices 0–8 = individual character bos
 
 Key files:
 - `src/components/Campaign/CampaignScreen.tsx` — map UI, node rendering, progress display
-- `src/data/dialogue.ts` — all dialogue data. `FINALE_PRE_SCENES` (14 scenes), `FINALE_POST_WIN` (4 scenes), `FINALE_POST_LOSE` (2 scenes). `FinaleScene` interface: `{ charId: string; lines: string[] }`.
-- `App.tsx` — `'campaign'`, `'pre-dialogue'`, `'finale-dialogue'` screens; `campaignOpponent`, `campaignLastResult`, `finaleSceneIdx` state.
+- `src/data/dialogue.ts` — all dialogue data. `FINALE_PRE_SCENES` (14 scenes), `FINALE_POST_WIN` (4 scenes), `FINALE_POST_LOSE` (2 scenes). All 9 characters fully voiced across 3 chapters × 3 phases.
+- `App.tsx` — `'campaign'`, `'pre-dialogue'`, `'finale-dialogue'` screens
 
-The finale node (index 9) triggers `'finale-dialogue'` (not `'pre-dialogue'`), cycles through all 14 `FINALE_PRE_SCENES` before the game, then post-game cycles through `FINALE_POST_WIN` or `FINALE_POST_LOSE`. The `isPost` flag in the `'finale-dialogue'` screen is `campaignLastResult !== null`.
+**Campaign character locking**: `computeCampaignSelectableIds()` in App.tsx filters `ownedCardIds` to only cards from characters the player has already beaten in that chapter. Shop-purchased cards for future characters are excluded. Uses `CAMPAIGN_CHARS.slice(0, beatenCount)`.
 
-Guard: the unlock `useEffect` skips `charId === 'finale'` (no card to unlock for the final battle).
+The finale node (index 9) triggers `'finale-dialogue'` (not `'pre-dialogue'`), cycles through all 14 `FINALE_PRE_SCENES` before the game, then post-game `FINALE_POST_WIN` or `FINALE_POST_LOSE`. The `isPost` flag = `campaignLastResult !== null`.
+
+Guard: unlock `useEffect` skips `charId === 'finale'` (no card to unlock for the final battle).
 
 ---
 
@@ -178,7 +240,7 @@ gcloud run services update happy-cloud-run-api \
 ```
 
 #### 2. New Cloud Run endpoint: `POST /awardGamePoints`
-The existing point endpoints don't auto-convert points→tokens for arbitrary calls (that only happens in `adjustStudentByFeedback` which is event-feedback-specific). This new endpoint:
+The existing point endpoints don't auto-convert points→tokens for arbitrary calls. This new endpoint:
 - Accepts `{ studentId, academyKey: 'happypawnchess', points, reason }`
 - Awards points + calculates how many tokens were crossed (floor(newTotal/100) - floor(oldTotal/100))
 - Creates a `point_transaction` + optional `token_transaction` in one Firestore batch
@@ -203,7 +265,7 @@ New collection: `chess_card_ownership/{userId}` with field `ownedCards: string[]
 After login, fetch token balance from Firestore (direct client SDK read on `app_users/{userId}`) and display it in the UI (mode selection screen header, card shop screen). Refresh after any transaction.
 
 #### 5. Booster pack shop + `POST /openBoosterPack` endpoint
-Shop screen in HappyPawnCards. Pack tiers:
+Shop screen in HappyPawnCards (`src/components/Shop/ShopScreen.tsx` already exists as scaffold). Pack tiers:
 
 | Pack | Token cost |
 |---|---|
@@ -245,33 +307,32 @@ For Phase 1, only students with existing HappyCademy accounts can earn tokens. G
 ## Roadmap
 
 ### In progress / next up
-- [ ] HappyCademy token integration (see above — auth is already done, CORS is next)
-- [ ] Missing powers: 20 of 27 powers not yet designed — Crystal Queen and King's Guard base powers, plus all legendary and space powers for every character
+- [ ] HappyCademy token integration (see above — auth is done, CORS is next)
 - [ ] Chess puzzles screen (Lichess API, awards points)
 
 ### Frontend-only
-- [ ] **Sounds**: move, capture, win/lose, card power sounds
-- [ ] **Better piece styles**: offer different visual styles for standard chess pieces
+- [x] **Sounds**: fully implemented in `src/utils/sounds.ts` (move, capture, check, power, win, lose, timer tick)
+- [ ] **Better piece styles**: offer different visual styles for standard chess pieces (`PieceSetContext.tsx` + `PieceSetPicker.tsx` already exist as scaffold)
 - [ ] **App icon**: custom chess-themed favicon
 
-### Requires backend / infra
-- [ ] **Online multiplayer**: real-time play via WebSockets (Vercel supports WebSockets on Fluid Compute)
+### Online multiplayer — implemented ✅
+- [x] **Real-time play** via Firestore (`online_games` collection), URL sharing (`?join=gameId`)
+- [x] **Time controls**: 3/5/10 min per player or no limit; pools track per-player remaining time
+- [x] **Disconnection detection**: heartbeat every 15s, 'maybe'/'likely' states, Claim Win button
 - [ ] **Queue system**: matchmaking queue with live player count displayed
 - [ ] **Ratings & league**: ELO-style rating, seasonal leagues
 - [ ] **Profile**: avatar, username, stats overview
 - [ ] **Friends**: add/remove, see online status
 - [ ] **Game history**: replay past games
-- [ ] **Stats**: win rate, most-used cards, etc.
-- [ ] **Invite via link**: generate a game link to challenge a specific person
 
 ### TCG progression system
-- [x] **Campaign mode**: implemented — 10 nodes, dialogue system, character unlock on win
+- [x] **Campaign mode**: implemented — 10 nodes, dialogue system, character unlock on win, campaign character locking
+- [x] **Collection screen**: scaffold exists at `src/components/Collection/CollectionScreen.tsx`
 - [ ] **Achievement-gated rarities**: legendary/space only unlock via milestones
-- [ ] **Collection screen**: view all cards owned vs. locked, with unlock hints
 - [ ] **Booster packs**: see HappyCademy integration section above
 
 ### Design / polish
-- [ ] **Drag and drop**: already partially implemented (pointer events on Board); Unipop/Robin Rook/Chessbeard still require click-click for multi-step flows — drag selects piece only
+- [x] **Drag and drop**: fully implemented (pointer events on Board; multi-step powers require click for second step)
 - [ ] **Improve overall design**: more character, more card art throughout the UI
 - [ ] **Animations**: piece movement, power activation, card-play effects
 
@@ -279,24 +340,38 @@ For Phase 1, only students with existing HappyCademy accounts can earn tokens. G
 
 ```
 src/
-  App.tsx                        # Screen routing, card zoom modal, CardStrip, auth gating
+  App.tsx                        # Screen routing, card zoom modal, CardStrip, auth gating, computeCampaignSelectableIds
+  context/
+    PieceSetContext.tsx           # Context for piece set selection (standard/custom)
   lib/
-    firebase.ts                  # Firebase init (dev/prod auto-detected)
+    firebase.ts                  # Firebase init — dev/prod via VITE_FIREBASE_ENV env var
+    firestore.ts                 # Exports db (Firestore instance)
+    onlineGame.ts                # Firestore read/write helpers for online_games collection
   hooks/
     useAuth.ts                   # Firebase Auth — onAuthStateChanged, signIn, signOut
     useChessGame.ts              # All game state & actions
+    useOnlineGame.ts             # Online game lifecycle: create, join, rejoin, heartbeat, claimWin, leaveGame
+  utils/
+    sounds.ts                    # All audio: playMove/Capture/Check/Power/Win/Lose/TimerTick, unlockAudio
   engine/
-    pseudolegal.ts               # Base moves + king detection
-    minimax.ts                   # AI
-    aipowers.ts                  # AI power move selection (Unipop, Robin Rook, Happy Pawn, etc.)
-    unipop.ts / robinrook.ts / puzzlepete.ts
-    blackking.ts / happypawn.ts / chessbeard.ts
+    pseudolegal.ts               # Base pseudo-legal moves + isKingOnBoard
+    minimax.ts                   # AI minimax with alpha-beta
+    aipowers.ts                  # AI power move selection for all 10 characters
+    unipop.ts                    # L-Path, Phase Jump (wrap edges), Double Jump, getLegendaryUnipopTargets
+    robinrook.ts                 # Shoot, getAllDirShootTargets (space), getRobinRookLegendaryTargets (cannon)
+    puzzlepete.ts                # getPuzzlePeteBishopTargets (bounce)
+    piratequeen.ts               # getPirateQueenTargets (bouncing queen — legendary upgrade of Puzzle Pete)
+    blackking.ts                 # Royal Gambit, applyDeathAura (legendary), getSpaceBlackKingTargets
+    happypawn.ts                 # Push, space reserve placement, legendary early promotion
+    chessbeard.ts                # Sacrifice, Even Trade (legendary), Freeze (space); PIECE_VALUE, countMaterial
+    crystalqueen.ts              # Royal Switch (swap with n/b/r), Pawn Switch (legendary), Phantom Queen (space immune)
+    kingsguard.ts                # Pawn Shield (teleport to block), Strike Check (legendary), Pawn Wall (space)
   components/
     Auth/
       SignInScreen.tsx            # Email/password sign-in UI
     Board/
-      Board.tsx                  # Square grid + overlays + piece image map; all clicks via onPointerDown
-      Square.tsx                 # Single square — NO onClick (prevented double-call bug)
+      Board.tsx                  # Square grid + overlays; all clicks via onPointerDown; drag-and-drop; unlockAudio()
+      Square.tsx                 # Single square — NO onClick
       Piece.tsx                  # Renders piece image (cardImage or standard SVG)
       RookChoiceMenu.tsx         # Move vs Shoot popup
       PromotionMenu.tsx          # Legendary Happy Pawn promotion choice
@@ -304,16 +379,24 @@ src/
     GameInfo/
       GameInfo.tsx               # Status, timer, player badges, action buttons
       MoveHistory.tsx            # Coordinate notation (e2-e4 / Nf3xe5)
+      PieceSetPicker.tsx         # Piece style selector
     CardSelection/
       CardSelectionScreen.tsx    # Rarity tabs, card grid, pick slots
       CardTile.tsx               # Individual card with selection/conflict/coming-soon states
     Campaign/
       CampaignScreen.tsx         # Map UI, node progression
+      DialogueScreen.tsx         # Character dialogue display
+    Collection/
+      CollectionScreen.tsx       # Card collection viewer (scaffold)
     ModeSelection/
-      ModeSelectionScreen.tsx    # VS Computer / VS Player / Online (coming soon)
+      ModeSelectionScreen.tsx    # VS Computer / VS Player / Online
+    Online/
+      OnlineLobbyScreen.tsx      # Online game lobby: create link, join via gameId, display URL
+    Shop/
+      ShopScreen.tsx             # Token shop scaffold
   data/
-    cards.ts                     # Card variants, rarities
-    powers.ts                    # CardPowerDef, CARD_POWERS, piece image constants
+    cards.ts                     # CardVariant type, rarities
+    powers.ts                    # CardPowerDef, CARD_POWERS map (all 10 characters), piece image constants
     dialogue.ts                  # All campaign dialogue + FINALE_PRE/POST_WIN/POST_LOSE scenes
 public/
   images/
