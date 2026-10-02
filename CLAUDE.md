@@ -304,6 +304,24 @@ For Phase 1, only students with existing HappyCademy accounts can earn tokens. G
 
 ---
 
+## Play Zone (`src/components/PlayZone/PlayZoneScreen.tsx`)
+
+A hub screen for quick-play activities — separate from the campaign and card game modes. Accessible from the mode selection screen.
+
+Current activities in the Play Zone:
+- **Bot Challenge** — standard chess game against the minimax AI (no card powers). Uses the same `useChessGame` hook but with `botCharacter = null` (no card picks). Deployed on `hpc-game-dev` Firebase Hosting and linked from the HPC website playground page.
+- Additional activities are placeholders (Chess Puzzles, Guess the Move, etc.)
+
+### Bot Challenge specifics
+- Uses `botCharacter` prop on `GameScreen`. When `botCharacter` is a real character, cards are active; when it's the bot-challenge "no-cards" mode, all powers are disabled.
+- **Piece art toggle** must be hidden in bot challenge — it only applies to Happy Pawn Cards game mode. Implemented by passing `onToggleSpecialPieces={undefined}` when `botCharacter` is set; `GameInfo` hides the toggle when the prop is `undefined`.
+- **Checkmate detection**: `getStatus()` in `useChessGame.ts` checks `chess.isCheckmate()` before `chess.isStalemate()`. This is critical — `chess.js` does NOT return `isStalemate = true` on checkmate (they're mutually exclusive), so the stalemate check must come after an explicit checkmate check.
+
+### Deployment
+The Play Zone is part of HappyPawnCards, deployed to Vercel (`npx vercel --prod`) **and** Firebase Hosting (`hpc-game-dev` site — linked from `happypawnchess.com/playground`).
+
+---
+
 ## Roadmap
 
 ### In progress / next up
