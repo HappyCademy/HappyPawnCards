@@ -168,7 +168,7 @@ export default function ModeSelectionScreen({ onSelect, isSignedIn, onSignOut, u
           onClick={() => onSelect('campaign')}
         />
         <ModeCard
-          image="/images/robi/robi-letsplay.png"
+          image="/images/meca-admiral-gambit/standing.png"
           title="VS Computer"
           description="Quick match against the AI"
           color="#c9a227"

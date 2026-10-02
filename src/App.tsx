@@ -1318,7 +1318,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   const robiSrc = !isVsPlayer && !isOnline && !isDraw
     ? botCharacterId
       ? `/images/characters/${botCharacterId}/basic-fullbody.png`
-      : (playerWins ? '/images/robi/robi-lost.png' : '/images/robi/robi-win.png')
+      : '/images/meca-admiral-gambit/standing.png'
     : null
 
   // Visual theme per outcome

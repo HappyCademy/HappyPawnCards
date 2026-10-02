@@ -70,14 +70,8 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
   if (!isVsPlayer && !isOnline) {
     if (botCharacterId) {
       robiSrc = `/images/characters/${botCharacterId}/basic-fullbody.png`
-    } else if (isGameOver) {
-      robiSrc = status === 'black-wins' ? '/images/robi/robi-win.png' : '/images/robi/robi-lost.png'
-    } else if (robiMood === 'thinking') {
-      robiSrc = '/images/robi/robi-thinking.png'
-    } else if (robiMood === 'yum') {
-      robiSrc = '/images/robi/robi-yum.png'
     } else {
-      robiSrc = '/images/robi/robi-yourturn.png'
+      robiSrc = '/images/meca-admiral-gambit/standing.png'
     }
   }
 
