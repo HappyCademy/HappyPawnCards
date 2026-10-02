@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import type { GameState, GameActions } from '../../hooks/useChessGame'
 import type { CardVariant } from '../../data/cards'
 import { RARITIES } from '../../data/cards'
@@ -44,21 +44,6 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
 
   const [resignPending, setResignPending] = useState(false)
   const [showPiecePicker, setShowPiecePicker] = useState(false)
-  const [robiMood, setRobiMood] = useState<'yourturn' | 'thinking' | 'yum'>('yourturn')
-  const prevThinkingRef = useRef(false)
-
-  useEffect(() => {
-    if (isVsPlayer || isGameOver) return
-    const wasThinking = prevThinkingRef.current
-    prevThinkingRef.current = isAIThinking
-    if (isAIThinking) { setRobiMood('thinking'); return }
-    if (wasThinking) {
-      setRobiMood('yum')
-      const t = setTimeout(() => setRobiMood('yourturn'), 1200)
-      return () => clearTimeout(t)
-    }
-    setRobiMood('yourturn')
-  }, [isAIThinking, isGameOver, isVsPlayer])
 
   const turnLabel = isOnline
     ? (isMyTurn ? 'You' : 'Opponent')
