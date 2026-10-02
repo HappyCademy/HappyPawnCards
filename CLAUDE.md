@@ -1,5 +1,12 @@
 # Happy Pawn Cards — Claude Code Guide
 
+## ⚠️ Default environment: DEV only
+
+**All work targets DEV unless Sébastien explicitly says otherwise.**
+- Firebase: uses `happy-app-dev-f90a0` dev project (controlled by `VITE_FIREBASE_ENV` — omitting it defaults to dev)
+- Vercel: `npx vercel` (no `--prod`) deploys to preview; add `--prod` only when explicitly asked
+- Firebase Hosting: deploy to `hpc-game-dev` only; never to `hpc-game-prod` without an explicit instruction
+
 ## Project overview
 
 A digital chess card game where players pick 2 character cards before the match, each granting unique powers that bend chess rules. Supports VS Computer (minimax AI), VS Player (pass-and-play), and **Online multiplayer** (real-time via Firestore + URL sharing). Part of the **HappyCademy** ecosystem (a children's chess/STEM academy in Bangkok).
