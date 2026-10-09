@@ -131,7 +131,7 @@ export default function BotChallengeScreen({ onSelect, onBack }: Props) {
           Choose Your Opponent
         </h1>
         <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '13px', opacity: 0.75, margin: 0 }}>
-          8 characters — each stronger than the last. Can you beat them all?
+          9 characters — each stronger than the last. Can you beat them all?
         </p>
       </div>
 
