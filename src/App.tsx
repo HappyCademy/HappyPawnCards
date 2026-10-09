@@ -102,6 +102,7 @@ export default function App() {
   const [onlineTimeControl, setOnlineTimeControl] = useState<number | null>(null)
   const [botCharacter, setBotCharacter] = useState<BotCharacterDef | null>(null)
   const [commentaryLine, setCommentaryLine] = useState<string | null>(null)
+  const [commentaryMood, setCommentaryMood] = useState<'confident' | 'nervous' | 'crying' | null>(null)
   const commentaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCommentaryMoveCountRef = useRef(0)
   const prevCommentaryIsCheckRef = useRef(false)
@@ -196,12 +197,13 @@ export default function App() {
   useEffect(() => { externalMoveRef.current = applyExternalTurn }, [applyExternalTurn])
 
   // ── Bot commentary ────────────────────────────────────────────────────────────
-  function showCommentaryLine(lines: string[], persist = false) {
+  function showCommentaryLine(lines: string[], mood: 'confident' | 'nervous' | 'crying' | null, persist = false) {
     if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
     const line = lines[Math.floor(Math.random() * lines.length)]
     setCommentaryLine(line)
+    setCommentaryMood(mood)
     if (!persist) {
-      commentaryTimerRef.current = setTimeout(() => setCommentaryLine(null), 3500)
+      commentaryTimerRef.current = setTimeout(() => { setCommentaryLine(null); setCommentaryMood(null) }, 3500)
     }
   }
 
@@ -210,7 +212,7 @@ export default function App() {
     if (!botCharacter || screen !== 'game') return
     prevCommentaryMoveCountRef.current = 0
     prevCommentaryIsCheckRef.current = false
-    const t = setTimeout(() => showCommentaryLine(botCharacter.dialogue.intro), 400)
+    const t = setTimeout(() => showCommentaryLine(botCharacter.dialogue.intro, 'confident'), 400)
     return () => clearTimeout(t)
   }, [botCharacter?.characterId, screen])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -226,13 +228,13 @@ export default function App() {
     const checkIsNew = isCheck && !prevCommentaryIsCheckRef.current
 
     if (checkIsNew && botJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.check)
+      showCommentaryLine(botCharacter.dialogue.check, 'confident')
     } else if (checkIsNew && playerJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.botInCheck)
+      showCommentaryLine(botCharacter.dialogue.botInCheck, 'nervous')
     } else if (isCapture && botJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.botCaptures)
+      showCommentaryLine(botCharacter.dialogue.botCaptures, 'confident')
     } else if (isCapture && playerJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.playerCaptures)
+      showCommentaryLine(botCharacter.dialogue.playerCaptures, 'crying')
     }
 
     prevCommentaryIsCheckRef.current = isCheck
@@ -244,9 +246,11 @@ export default function App() {
     if (!botCharacter || screen !== 'game' || status === 'playing') return
     if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
     if (status === 'black-wins') {
-      setCommentaryLine(botCharacter.dialogue.botWins[Math.floor(Math.random() * botCharacter.dialogue.botWins.length)])
+      const line = botCharacter.dialogue.botWins[Math.floor(Math.random() * botCharacter.dialogue.botWins.length)]
+      setCommentaryLine(line); setCommentaryMood('confident')
     } else if (status === 'white-wins') {
-      setCommentaryLine(botCharacter.dialogue.playerWins[Math.floor(Math.random() * botCharacter.dialogue.playerWins.length)])
+      const line = botCharacter.dialogue.playerWins[Math.floor(Math.random() * botCharacter.dialogue.playerWins.length)]
+      setCommentaryLine(line); setCommentaryMood('crying')
     }
   }, [status, screen])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -932,7 +936,7 @@ export default function App() {
               myColor={isOnline ? myColor : null}
               botCharacter={botCharacter}
               commentaryLine={commentaryLine}
-              botMood={status !== 'playing' ? null : blackAdvantage >= 3 ? 'confident' : whiteAdvantage >= 5 ? 'crying' : whiteAdvantage >= 2 ? 'nervous' : null}
+              botMood={commentaryMood}
             />
           </div>
         </div>
