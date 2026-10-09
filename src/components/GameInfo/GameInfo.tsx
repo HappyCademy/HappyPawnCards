@@ -692,27 +692,26 @@ function BotCommentaryInline({ bot, line, mood }: {
     : `/images/characters/${bot.characterId}/basic-fullbody.png`
 
   return (
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-      {/* Portrait */}
-      <div style={{
-        flexShrink: 0, width: '80px', height: '110px', borderRadius: '10px', overflow: 'hidden',
-        border: `2px solid ${bot.themeColor}55`,
-        boxShadow: `0 0 10px ${bot.themeColor}33`,
-      }}>
-        <img
-          src={portraitSrc}
-          alt={bot.displayName}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-        />
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+      {/* Portrait — frameless, full-width */}
+      <img
+        src={portraitSrc}
+        alt={bot.displayName}
+        style={{
+          width: '100%', maxHeight: '180px',
+          objectFit: 'contain', objectPosition: 'center bottom',
+          display: 'block',
+          filter: `drop-shadow(0 4px 16px ${bot.themeColor}44)`,
+        }}
+        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+      />
 
       {/* Speech bubble */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ width: '100%' }}>
         <p style={{
           fontFamily: "'Cinzel', Georgia, serif", fontSize: '9px', fontWeight: 700,
           textTransform: 'uppercase', letterSpacing: '0.1em',
-          color: bot.themeColor, margin: '0 0 4px',
+          color: bot.themeColor, margin: '0 0 4px', textAlign: 'center',
         }}>
           {bot.displayName} · Lvl {bot.level}
         </p>
@@ -739,3 +738,4 @@ function BotCommentaryInline({ bot, line, mood }: {
     </div>
   )
 }
+
