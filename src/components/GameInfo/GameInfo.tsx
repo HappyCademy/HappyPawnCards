@@ -14,12 +14,13 @@ interface Props {
   onToggleSpecialPieces?: () => void
   myColor?: 'w' | 'b' | null
   botCharacterId?: string | null
+  botDisplayName?: string | null
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacterId = null }: Props) {
+export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacterId = null, botDisplayName = null }: Props) {
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
@@ -263,7 +264,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           VS
         </div>
         <PlayerBadge
-          label={isVsPlayer ? 'Player 2' : isOnline ? (myColor === 'b' ? 'You' : 'Opponent') : 'AI'}
+          label={isVsPlayer ? 'Player 2' : isOnline ? (myColor === 'b' ? 'You' : 'Opponent') : (botDisplayName ?? 'AI')}
           sublabel="Black"
           color="black"
           active={turn === 'b' && !isGameOver}

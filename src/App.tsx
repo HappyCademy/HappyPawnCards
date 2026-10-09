@@ -934,6 +934,7 @@ export default function App() {
               onToggleSpecialPieces={!botCharacter ? () => setShowSpecialPieces(v => !v) : undefined}
               myColor={isOnline ? myColor : null}
               botCharacterId={botCharacter?.characterId}
+              botDisplayName={botCharacter?.displayName}
             />
           </div>
         </div>
