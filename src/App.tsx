@@ -880,6 +880,7 @@ export default function App() {
           <BotCommentaryPanel
             bot={botCharacter}
             line={commentaryLine}
+            mood={status !== 'playing' ? null : blackAdvantage >= 3 ? 'confident' : whiteAdvantage >= 5 ? 'crying' : whiteAdvantage >= 2 ? 'nervous' : null}
           />
         ) : pickedCards && pickedCards.ai.length > 0 && (
           <CardStrip
@@ -1187,9 +1188,10 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function BotCommentaryPanel({ bot, line }: {
+function BotCommentaryPanel({ bot, line, mood }: {
   bot: BotCharacterDef
   line: string | null
+  mood: 'confident' | 'nervous' | 'crying' | null
 }) {
   const [displayed, setDisplayed] = useState('')
   const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1221,7 +1223,7 @@ function BotCommentaryPanel({ bot, line }: {
         boxShadow: `0 0 12px ${bot.themeColor}33`,
       }}>
         <img
-          src={`/images/characters/${bot.characterId}/basic-fullbody.png`}
+          src={mood ? `/images/characters/${bot.characterId}/${mood}.png` : `/images/characters/${bot.characterId}/basic-fullbody.png`}
           alt={bot.displayName}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}

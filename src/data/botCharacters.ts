@@ -29,7 +29,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     depth: 1,
     randomness: 0.75,
     themeColor: '#4ade80',
-    portraitSrc: '/images/cards/happy-pawn_1basic.webp',
+    portraitSrc: '/images/characters/happy-pawn/basic-fullbody.png',
     tagline: 'Joyful & eager — the ultimate beginner!',
     aiCardIds: ['happy-pawn_1basic'],
     dialogue: {
@@ -76,7 +76,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     depth: 1,
     randomness: 0.50,
     themeColor: '#f59e0b',
-    portraitSrc: '/images/cards/chessbeard_1basic.webp',
+    portraitSrc: '/images/characters/chessbeard/basic-fullbody.png',
     tagline: 'The wise old master of the chessboard.',
     aiCardIds: ['chessbeard_1basic'],
     dialogue: {
@@ -123,7 +123,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     depth: 1,
     randomness: 0.25,
     themeColor: '#6366f1',
-    portraitSrc: '/images/cards/general-gambit_6legend.webp',
+    portraitSrc: '/images/characters/general-gambit/basic-fullbody.png',
     tagline: 'The strict, righteous commander of the board.',
     aiCardIds: ['general-gambit_6legend'],
     dialogue: {
@@ -170,7 +170,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     depth: 2,
     randomness: 0.55,
     themeColor: '#c084fc',
-    portraitSrc: '/images/cards/unipop_1basic.webp',
+    portraitSrc: '/images/characters/unipop/basic-fullbody.png',
     tagline: 'Wild, chaotic, and totally unpredictable!',
     aiCardIds: ['unipop_1basic'],
     dialogue: {
@@ -211,13 +211,60 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   },
 
   {
+    characterId: 'crystal-queen',
+    displayName: 'Crystal Queen',
+    level: 5,
+    depth: 2,
+    randomness: 0.30,
+    themeColor: '#0ea5e9',
+    portraitSrc: '/images/characters/crystal-queen/basic-fullbody.png',
+    tagline: 'Graceful, powerful, and absolutely ruthless.',
+    aiCardIds: ['crystal-queen_1basic'],
+    dialogue: {
+      intro: [
+        "Every path is mine to claim. Shall we begin?",
+        "The board is my domain. I move where I please.",
+        "You face the Crystal Queen. Choose your moves carefully.",
+      ],
+      botCaptures: [
+        "Mine. As expected.",
+        "Nothing stands in my way.",
+        "The queen takes what the queen wants.",
+      ],
+      playerCaptures: [
+        "...A calculated loss.",
+        "Interesting. You have more precision than I expected.",
+        "Noted. Do not think that will happen again.",
+      ],
+      check: [
+        "Check. Your king has nowhere elegant to go.",
+        "Feel the pressure of the queen's gaze.",
+        "Check. The end is crystallising.",
+      ],
+      botInCheck: [
+        "...You dare? Bold.",
+        "A clever move. But a queen is never truly cornered.",
+        "Unexpected. My respect — briefly.",
+      ],
+      botWins: [
+        "Checkmate. The queen reigns, as always.",
+        "A graceful victory. You played with heart — that counts for something.",
+      ],
+      playerWins: [
+        "...You have bested the Crystal Queen. Extraordinary.",
+        "Well played. That was genuinely beautiful chess.",
+      ],
+    },
+  },
+
+  {
     characterId: 'robin-rook',
     displayName: 'Robin Rook',
-    level: 5,
+    level: 6,
     depth: 2,
     randomness: 0.10,
     themeColor: '#94a3b8',
-    portraitSrc: '/images/cards/robin-rook_1basic.webp',
+    portraitSrc: '/images/characters/robin-rook/basic-fullbody.png',
     tagline: 'Few words. Maximum strength.',
     aiCardIds: ['robin-rook_1basic', 'happy-pawn_1basic'],
     dialogue: {
@@ -262,11 +309,11 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'kings-guard',
     displayName: "King's Guard",
-    level: 6,
+    level: 7,
     depth: 2,
     randomness: 0.05,
     themeColor: '#60a5fa',
-    portraitSrc: '/images/cards/kings-guard_1basic.webp',
+    portraitSrc: '/images/characters/kings-guard/basic-fullbody.png',
     tagline: 'Scared but devoted — the king must be protected!',
     aiCardIds: ['kings-guard_1basic', 'black-king_1basic'],
     dialogue: {
@@ -309,11 +356,11 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'puzzle-pete',
     displayName: 'Puzzle Pete',
-    level: 7,
+    level: 8,
     depth: 3,
     randomness: 0.15,
     themeColor: '#f97316',
-    portraitSrc: '/images/cards/puzzle-pete_1basic.webp',
+    portraitSrc: '/images/characters/puzzle-pete/basic-fullbody.png',
     tagline: 'The evil pirate who strikes where you least expect!',
     aiCardIds: ['pirate-queen_6legend', 'unipop_1basic'],
     dialogue: {
@@ -356,11 +403,11 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'black-king',
     displayName: 'Black King',
-    level: 8,
+    level: 9,
     depth: 3,
     randomness: 0.0,
     themeColor: '#dc2626',
-    portraitSrc: '/images/cards/black-king_1basic.webp',
+    portraitSrc: '/images/characters/black-king/basic-fullbody.png',
     tagline: 'The ultimate boss. Unmatched. Undefeated.',
     aiCardIds: ['black-king_6legend', 'pirate-queen_6legend'],
     dialogue: {

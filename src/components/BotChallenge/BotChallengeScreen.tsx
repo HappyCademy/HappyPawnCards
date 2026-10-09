@@ -13,7 +13,7 @@ interface Props {
 function StarRating({ level }: { level: number }) {
   return (
     <div style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
-      {Array.from({ length: 8 }, (_, i) => (
+      {Array.from({ length: 9 }, (_, i) => (
         <span key={i} style={{ fontSize: '8px', color: i < level ? '#f59e0b' : 'rgba(255,255,255,0.15)' }}>
           ★
         </span>
@@ -57,8 +57,8 @@ function BotTile({ bot, onClick }: { bot: BotCharacterDef; onClick: () => void }
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'top',
+            objectFit: 'contain',
+            objectPosition: 'center',
             display: 'block',
             filter: hovered ? 'brightness(1.1)' : 'brightness(0.9)',
             transition: 'filter 0.18s',
