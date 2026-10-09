@@ -255,6 +255,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           color="white"
           active={turn === 'w' && !isGameOver}
           timeLeft={!botCharacterId && turn === 'w' && !isGameOver ? timeLeft : undefined}
+          portraitSrc={botCharacterId ? '/images/characters/happy-pawn/basic-chibi.png' : undefined}
         />
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
