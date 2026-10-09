@@ -875,14 +875,8 @@ export default function App() {
       )}
 
       <div className="flex flex-col items-center gap-3 w-full max-w-5xl">
-        {/* Top: bot portrait (bot challenge) OR AI cards (other modes) */}
-        {botCharacter ? (
-          <BotCommentaryPanel
-            bot={botCharacter}
-            line={commentaryLine}
-            mood={status !== 'playing' ? null : blackAdvantage >= 3 ? 'confident' : whiteAdvantage >= 5 ? 'crying' : whiteAdvantage >= 2 ? 'nervous' : null}
-          />
-        ) : pickedCards && pickedCards.ai.length > 0 && (
+        {/* Top: AI cards (non-bot modes only) */}
+        {!botCharacter && pickedCards && pickedCards.ai.length > 0 && (
           <CardStrip
             label={topLabel}
             cards={pickedCards.ai}
@@ -936,8 +930,9 @@ export default function App() {
               showSpecialPieces={showSpecialPieces}
               onToggleSpecialPieces={!botCharacter ? () => setShowSpecialPieces(v => !v) : undefined}
               myColor={isOnline ? myColor : null}
-              botCharacterId={botCharacter?.characterId}
-              botDisplayName={botCharacter?.displayName}
+              botCharacter={botCharacter}
+              commentaryLine={commentaryLine}
+              botMood={status !== 'playing' ? null : blackAdvantage >= 3 ? 'confident' : whiteAdvantage >= 5 ? 'crying' : whiteAdvantage >= 2 ? 'nervous' : null}
             />
           </div>
         </div>
@@ -1183,83 +1178,6 @@ function CardStrip({ label, cards, accent, onCardClick }: {
             </div>
           )
         })}
-      </div>
-    </div>
-  )
-}
-
-function BotCommentaryPanel({ bot, line, mood }: {
-  bot: BotCharacterDef
-  line: string | null
-  mood: 'confident' | 'nervous' | 'crying' | null
-}) {
-  const [displayed, setDisplayed] = useState('')
-  const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (tickRef.current) clearTimeout(tickRef.current)
-    if (!line) { setDisplayed(''); return }
-    let i = 0
-    setDisplayed('')
-    function step() {
-      i++
-      setDisplayed(line!.slice(0, i))
-      if (i < line!.length) tickRef.current = setTimeout(step, 28)
-    }
-    tickRef.current = setTimeout(step, 50)
-    return () => { if (tickRef.current) clearTimeout(tickRef.current) }
-  }, [line])
-
-  const isTyping = !!line && displayed.length < line.length
-
-  return (
-    <div style={{
-      width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px',
-    }}>
-      {/* Portrait */}
-      <div style={{
-        flexShrink: 0, width: '60px', height: '84px', borderRadius: '8px', overflow: 'hidden',
-        border: `2px solid ${bot.themeColor}55`,
-        boxShadow: `0 0 12px ${bot.themeColor}33`,
-      }}>
-        <img
-          src={mood ? `/images/characters/${bot.characterId}/${mood}.png` : `/images/characters/${bot.characterId}/basic-fullbody.png`}
-          alt={bot.displayName}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-        />
-      </div>
-
-      {/* Name + speech bubble */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          fontFamily: D, fontSize: '10px', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em',
-          color: bot.themeColor, margin: '0 0 5px',
-        }}>
-          {bot.displayName} · Lvl {bot.level}
-        </p>
-        <div style={{
-          background: 'rgba(13,10,26,0.88)',
-          border: `1.5px solid ${bot.themeColor}55`,
-          borderRadius: '10px',
-          padding: '8px 12px',
-          minHeight: '44px',
-          display: 'flex', alignItems: 'center',
-          boxShadow: `0 2px 14px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,
-        }}>
-          <p style={{
-            fontFamily: B, fontSize: '14px',
-            color: line ? 'var(--ivory)' : 'rgba(200,185,165,0.35)',
-            lineHeight: 1.45, margin: 0,
-            fontStyle: line ? 'normal' : 'italic',
-          }}>
-            {line ? displayed : '...'}
-            {isTyping && (
-              <span style={{ opacity: 0.7, animation: 'blink-caret 0.6s step-end infinite' }}>▌</span>
-            )}
-          </p>
-        </div>
       </div>
     </div>
   )

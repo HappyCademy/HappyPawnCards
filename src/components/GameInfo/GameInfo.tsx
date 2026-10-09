@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { GameState, GameActions } from '../../hooks/useChessGame'
 import type { CardVariant } from '../../data/cards'
 import { RARITIES } from '../../data/cards'
 import { CARD_POWERS } from '../../data/powers'
+import type { BotCharacterDef } from '../../data/botCharacters'
 import MoveHistory from './MoveHistory'
 import PieceSetPicker from './PieceSetPicker'
 
@@ -13,14 +14,17 @@ interface Props {
   showSpecialPieces?: boolean
   onToggleSpecialPieces?: () => void
   myColor?: 'w' | 'b' | null
-  botCharacterId?: string | null
-  botDisplayName?: string | null
+  botCharacter?: BotCharacterDef | null
+  commentaryLine?: string | null
+  botMood?: 'confident' | 'nervous' | 'crying' | null
 }
 
 const D = "'Cinzel', Georgia, serif"
 const B = "'Nunito', system-ui, sans-serif"
 
-export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacterId = null, botDisplayName = null }: Props) {
+export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacter = null, commentaryLine = null, botMood = null }: Props) {
+  const botCharacterId = botCharacter?.characterId ?? null
+  const botDisplayName = botCharacter?.displayName ?? null
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
@@ -53,12 +57,8 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     : (isVsPlayer ? 'Player 2' : 'AI')
 
   let robiSrc: string | null = null
-  if (!isVsPlayer && !isOnline) {
-    if (botCharacterId) {
-      robiSrc = `/images/characters/${botCharacterId}/basic-fullbody.png`
-    } else {
-      robiSrc = '/images/meca-admiral-gambit/standing.png'
-    }
+  if (!isVsPlayer && !isOnline && !botCharacterId) {
+    robiSrc = '/images/meca-admiral-gambit/standing.png'
   }
 
   // ── Status text ───────────────────────────────────────────────────────────────
@@ -230,17 +230,22 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
         </div>
       )}
 
-      {/* ── Robi mood (vsComputer only) ────────────────────────────────────── */}
+      {/* ── Bot commentary (bot challenge only) ───────────────────────────── */}
+      {botCharacter && (
+        <BotCommentaryInline bot={botCharacter} line={commentaryLine} mood={botMood} />
+      )}
+
+      {/* ── Robi portrait (regular vsComputer only) ────────────────────────── */}
       {robiSrc && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
           <img
             key={robiSrc}
             src={robiSrc}
-            alt={botCharacterId ? 'Character' : 'Robi'}
+            alt="Robi"
             style={{
-              height: botCharacterId ? '110px' : '88px',
+              height: '88px',
               objectFit: 'contain',
-              objectPosition: botCharacterId ? 'top' : 'center',
+              objectPosition: 'center',
               animation: 'robi-pop 0.25s cubic-bezier(0.34,1.56,0.64,1)',
             }}
           />
@@ -654,6 +659,84 @@ function PlayerBadge({ label, color, active, timeLeft, portraitSrc }: {
           className={active ? 'animate-pulse' : ''}
         />
       )}
+    </div>
+  )
+}
+
+// ── Bot commentary panel (inside sidebar) ─────────────────────────────────────
+
+function BotCommentaryInline({ bot, line, mood }: {
+  bot: BotCharacterDef
+  line: string | null
+  mood: 'confident' | 'nervous' | 'crying' | null
+}) {
+  const [displayed, setDisplayed] = useState('')
+  const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (tickRef.current) clearTimeout(tickRef.current)
+    if (!line) { setDisplayed(''); return }
+    let i = 0
+    setDisplayed('')
+    function step() {
+      i++
+      setDisplayed(line!.slice(0, i))
+      if (i < line!.length) tickRef.current = setTimeout(step, 28)
+    }
+    tickRef.current = setTimeout(step, 50)
+    return () => { if (tickRef.current) clearTimeout(tickRef.current) }
+  }, [line])
+
+  const isTyping = !!line && displayed.length < line.length
+  const portraitSrc = mood
+    ? `/images/characters/${bot.characterId}/${mood}.png`
+    : `/images/characters/${bot.characterId}/basic-fullbody.png`
+
+  return (
+    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+      {/* Portrait */}
+      <div style={{
+        flexShrink: 0, width: '52px', height: '72px', borderRadius: '8px', overflow: 'hidden',
+        border: `2px solid ${bot.themeColor}55`,
+        boxShadow: `0 0 10px ${bot.themeColor}33`,
+      }}>
+        <img
+          src={portraitSrc}
+          alt={bot.displayName}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+        />
+      </div>
+
+      {/* Speech bubble */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontFamily: "'Cinzel', Georgia, serif", fontSize: '9px', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          color: bot.themeColor, margin: '0 0 4px',
+        }}>
+          {bot.displayName} · Lvl {bot.level}
+        </p>
+        <div style={{
+          background: 'rgba(13,10,26,0.88)',
+          border: `1.5px solid ${bot.themeColor}55`,
+          borderRadius: '10px',
+          padding: '7px 10px',
+          minHeight: '40px',
+          display: 'flex', alignItems: 'center',
+          boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
+        }}>
+          <p style={{
+            fontFamily: "'Nunito', system-ui, sans-serif", fontSize: '12px',
+            color: line ? 'var(--ivory)' : 'rgba(200,185,165,0.35)',
+            lineHeight: 1.4, margin: 0,
+            fontStyle: line ? 'normal' : 'italic',
+          }}>
+            {line ? displayed : '...'}
+            {isTyping && <span style={{ opacity: 0.7, animation: 'blink-caret 0.6s step-end infinite' }}>▌</span>}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
