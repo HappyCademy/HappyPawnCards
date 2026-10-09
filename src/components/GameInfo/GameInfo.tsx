@@ -24,7 +24,6 @@ const B = "'Nunito', system-ui, sans-serif"
 
 export default function GameInfo({ state, actions, focusedSpecialCard = null, showSpecialPieces = false, onToggleSpecialPieces, myColor, botCharacter = null, commentaryLine = null, botMood = null }: Props) {
   const botCharacterId = botCharacter?.characterId ?? null
-  const botDisplayName = botCharacter?.displayName ?? null
   const {
     turn, status, isCheck, isAIThinking, moveHistory,
     unipopState, unipopBonusSquare, rookChoiceSquare, isRookShootMode, blackKingBonusSquare,
@@ -252,32 +251,32 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
         </div>
       )}
 
-      {/* ── Player badges ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
-        <PlayerBadge
-          label={isVsPlayer ? 'Player 1' : isOnline ? (myColor === 'w' ? 'You' : 'Opponent') : 'You'}
-          sublabel="White"
-          color="white"
-          active={turn === 'w' && !isGameOver}
-          timeLeft={!botCharacterId && turn === 'w' && !isGameOver ? timeLeft : undefined}
-          portraitSrc={botCharacterId ? '/images/characters/happy-pawn/basic-chibi.png' : undefined}
-        />
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '10px', fontWeight: 700, color: 'rgba(201,162,39,0.3)',
-          letterSpacing: '0.08em', flexShrink: 0, fontFamily: D,
-        }}>
-          VS
+      {/* ── Player badges (non-bot modes only) ────────────────────────────── */}
+      {!botCharacterId && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+          <PlayerBadge
+            label={isVsPlayer ? 'Player 1' : isOnline ? (myColor === 'w' ? 'You' : 'Opponent') : 'You'}
+            sublabel="White"
+            color="white"
+            active={turn === 'w' && !isGameOver}
+            timeLeft={turn === 'w' && !isGameOver ? timeLeft : undefined}
+          />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '10px', fontWeight: 700, color: 'rgba(201,162,39,0.3)',
+            letterSpacing: '0.08em', flexShrink: 0, fontFamily: D,
+          }}>
+            VS
+          </div>
+          <PlayerBadge
+            label={isVsPlayer ? 'Player 2' : isOnline ? (myColor === 'b' ? 'You' : 'Opponent') : 'AI'}
+            sublabel="Black"
+            color="black"
+            active={turn === 'b' && !isGameOver}
+            timeLeft={turn === 'b' && !isGameOver ? timeLeft : undefined}
+          />
         </div>
-        <PlayerBadge
-          label={isVsPlayer ? 'Player 2' : isOnline ? (myColor === 'b' ? 'You' : 'Opponent') : (botDisplayName ?? 'AI')}
-          sublabel="Black"
-          color="black"
-          active={turn === 'b' && !isGameOver}
-          timeLeft={!botCharacterId && turn === 'b' && !isGameOver ? timeLeft : undefined}
-          portraitSrc={botCharacterId ? `/images/characters/${botCharacterId}/basic-chibi.png` : undefined}
-        />
-      </div>
+      )}
 
       {/* ── Move history ───────────────────────────────────────────────────── */}
       <div style={{
@@ -696,7 +695,7 @@ function BotCommentaryInline({ bot, line, mood }: {
     <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
       {/* Portrait */}
       <div style={{
-        flexShrink: 0, width: '52px', height: '72px', borderRadius: '8px', overflow: 'hidden',
+        flexShrink: 0, width: '80px', height: '110px', borderRadius: '10px', overflow: 'hidden',
         border: `2px solid ${bot.themeColor}55`,
         boxShadow: `0 0 10px ${bot.themeColor}33`,
       }}>
@@ -727,7 +726,7 @@ function BotCommentaryInline({ bot, line, mood }: {
           boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
         }}>
           <p style={{
-            fontFamily: "'Nunito', system-ui, sans-serif", fontSize: '12px',
+            fontFamily: "'Nunito', system-ui, sans-serif", fontSize: '13px',
             color: line ? 'var(--ivory)' : 'rgba(200,185,165,0.35)',
             lineHeight: 1.4, margin: 0,
             fontStyle: line ? 'normal' : 'italic',
