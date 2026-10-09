@@ -24,7 +24,9 @@ import { loadOnlineGame, loadActiveGameCache, clearActiveGame } from './lib/onli
 
 type AppScreen = 'mode' | 'puzzles' | 'bot-challenge' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
 
-const PLAYGROUND_URL = 'https://hpc-dev.web.app/playground'
+const PLAYGROUND_URL = (window.location.hostname === 'localhost' || window.location.hostname.includes('hpc-dev'))
+  ? 'https://hpc-dev.web.app/playground'
+  : 'https://happypawnchess.com/playground'
 
 interface PickedCards {
   player: CardVariant[]
