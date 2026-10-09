@@ -223,9 +223,10 @@ interface Options {
   onlineConfig?: { myColor: 'w' | 'b'; onTurnComplete: (state: OnlineSyncState) => void; timeControl?: number | null }
   botDepth?: number
   botRandomness?: number
+  noTimer?: boolean
 }
 
-export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0 }: Options): GameState & GameActions {
+export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0, noTimer = false }: Options): GameState & GameActions {
   const chessRef = useRef(new Chess())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validTargets, setValidTargets] = useState<Square[]>([])
@@ -991,6 +992,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   // Timer: count down every second; pause on AI turn, Black King bonus, game over, or opponent's online turn
   useEffect(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (noTimer) return
     const cur = chessRef.current
     const isOnlinePool = gameMode === 'online' && !!onlineConfig?.timeControl
     if (

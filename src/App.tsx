@@ -187,6 +187,7 @@ export default function App() {
     onlineConfig: (isOnline && myColor) ? { myColor, onTurnComplete: writeMyTurn, timeControl: onlineDoc?.timeControlSeconds ?? onlineTimeControl } : undefined,
     botDepth: botCharacter?.depth,
     botRandomness: botCharacter?.randomness,
+    noTimer: !!botCharacter,
   })
 
   // Keep external-move ref fresh so useOnlineGame can call it
@@ -1312,7 +1313,9 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
     headline = playerWins ? 'Victory!' : 'Defeat'
     subtitle = timedOut === 'w' ? 'You ran out of time'
       : timedOut === 'b' ? 'AI ran out of time'
-      : playerWins ? "Opponent's king captured!" : 'Your king was captured!'
+      : botCharacterId
+        ? (playerWins ? 'Checkmate!' : 'Checkmated!')
+        : (playerWins ? "Opponent's king captured!" : 'Your king was captured!')
   }
 
   const robiSrc = !isVsPlayer && !isOnline && !isDraw
@@ -1476,7 +1479,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
               🌐 Play Again
             </button>
           )}
-          {!isOnline && (
+          {!isOnline && !botCharacterId && (
             <button
               onClick={onChangeCards}
               style={{

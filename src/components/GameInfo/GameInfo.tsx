@@ -253,7 +253,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           sublabel="White"
           color="white"
           active={turn === 'w' && !isGameOver}
-          timeLeft={turn === 'w' && !isGameOver ? timeLeft : undefined}
+          timeLeft={!botCharacterId && turn === 'w' && !isGameOver ? timeLeft : undefined}
         />
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -267,7 +267,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
           sublabel="Black"
           color="black"
           active={turn === 'b' && !isGameOver}
-          timeLeft={turn === 'b' && !isGameOver ? timeLeft : undefined}
+          timeLeft={!botCharacterId && turn === 'b' && !isGameOver ? timeLeft : undefined}
           portraitSrc={botCharacterId ? `/images/characters/${botCharacterId}/basic-chibi.png` : undefined}
         />
       </div>
