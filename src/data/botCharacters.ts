@@ -23,56 +23,9 @@ export interface BotCharacterDef {
 
 export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
-    characterId: 'happy-pawn',
-    displayName: 'Happy Pawn',
-    level: 1,
-    depth: 1,
-    randomness: 0.75,
-    themeColor: '#4ade80',
-    portraitSrc: '/images/characters/happy-pawn/basic-fullbody.png',
-    tagline: 'Joyful & eager — the ultimate beginner!',
-    aiCardIds: ['happy-pawn_1basic'],
-    dialogue: {
-      intro: [
-        "Wow, a real opponent! I've been waiting for this!",
-        "Hehe, I've been practising ALL week just for you!",
-        "Don't go too easy on me! ...Actually, maybe a little?",
-      ],
-      botCaptures: [
-        "Got one! Did you see that?! I DID IT!",
-        "Oopsie, that was yours! I didn't mean to... okay I did!",
-        "Teehee! Beginner's luck? ...It's not JUST luck!",
-      ],
-      playerCaptures: [
-        "Nooo! That was my favourite piece...",
-        "Oh no oh no... I'm okay! I'm totally okay!",
-        "Yikes! Okay, strategy time. Do I even HAVE a strategy?",
-      ],
-      check: [
-        "Is that... checkmate? Wait, no — that's CHECK. Still cool!",
-        "CHECK! Oh wow I actually did it!",
-        "Your king looks scared. Mine too, honestly.",
-      ],
-      botInCheck: [
-        "AHHH my king! Not the king!!",
-        "That's check! ...You're very good at this!",
-        "Okay, okay, don't panic. I've trained for this. Sort of.",
-      ],
-      botWins: [
-        "I WIN?! I actually WIN! Best day EVER!! 🎉",
-        "YESSS! Wait till I tell my friends about this!",
-      ],
-      playerWins: [
-        "You won! You're amazing! Can we play again? Please?",
-        "Good game good game! You're way better than me but that was SO fun!",
-      ],
-    },
-  },
-
-  {
     characterId: 'chessbeard',
     displayName: 'Chessbeard',
-    level: 2,
+    level: 1,
     depth: 1,
     randomness: 0.50,
     themeColor: '#f59e0b',
@@ -119,7 +72,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'general-gambit',
     displayName: 'Admiral Gambit',
-    level: 3,
+    level: 2,
     depth: 1,
     randomness: 0.25,
     themeColor: '#6366f1',
@@ -166,7 +119,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'unipop',
     displayName: 'Unipop',
-    level: 4,
+    level: 3,
     depth: 2,
     randomness: 0.55,
     themeColor: '#c084fc',
@@ -213,7 +166,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'crystal-queen',
     displayName: 'Crystal Queen',
-    level: 5,
+    level: 4,
     depth: 2,
     randomness: 0.30,
     themeColor: '#0ea5e9',
@@ -260,7 +213,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'robin-rook',
     displayName: 'Robin Rook',
-    level: 6,
+    level: 5,
     depth: 2,
     randomness: 0.10,
     themeColor: '#94a3b8',
@@ -309,7 +262,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'kings-guard',
     displayName: "King's Guard",
-    level: 7,
+    level: 6,
     depth: 2,
     randomness: 0.05,
     themeColor: '#60a5fa',
@@ -356,7 +309,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'puzzle-pete',
     displayName: 'Puzzle Pete',
-    level: 8,
+    level: 7,
     depth: 3,
     randomness: 0.15,
     themeColor: '#f97316',
@@ -403,7 +356,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
   {
     characterId: 'black-king',
     displayName: 'Black King',
-    level: 9,
+    level: 8,
     depth: 3,
     randomness: 0.0,
     themeColor: '#dc2626',

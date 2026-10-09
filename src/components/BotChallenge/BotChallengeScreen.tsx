@@ -13,7 +13,7 @@ interface Props {
 function StarRating({ level }: { level: number }) {
   return (
     <div style={{ display: 'flex', gap: '2px', justifyContent: 'center' }}>
-      {Array.from({ length: 9 }, (_, i) => (
+      {Array.from({ length: 8 }, (_, i) => (
         <span key={i} style={{ fontSize: '8px', color: i < level ? '#f59e0b' : 'rgba(255,255,255,0.15)' }}>
           ★
         </span>
@@ -131,7 +131,7 @@ export default function BotChallengeScreen({ onSelect, onBack }: Props) {
           Choose Your Opponent
         </h1>
         <p style={{ fontFamily: B, color: 'var(--ivory-dim)', fontSize: '13px', opacity: 0.75, margin: 0 }}>
-          9 characters — each stronger than the last. Can you beat them all?
+          8 characters — each stronger than the last. Can you beat them all?
         </p>
       </div>
 
