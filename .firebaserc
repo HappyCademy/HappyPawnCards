@@ -1,0 +1,23 @@
+{
+  "projects": {
+    "default": "happy-app-dev-f90a0",
+    "dev": "happy-app-dev-f90a0",
+    "prod": "happy-app-prod-e2636"
+  },
+  "targets": {
+    "happy-app-dev-f90a0": {
+      "hosting": {
+        "game": [
+          "hpc-game-dev"
+        ]
+      }
+    },
+    "happy-app-prod-e2636": {
+      "hosting": {
+        "game": [
+          "hpc-game"
+        ]
+      }
+    }
+  }
+}
