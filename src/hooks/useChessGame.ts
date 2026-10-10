@@ -224,9 +224,10 @@ interface Options {
   botDepth?: number
   botRandomness?: number
   noTimer?: boolean
+  botMoveDelay?: number
 }
 
-export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0, noTimer = false }: Options): GameState & GameActions {
+export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0, noTimer = false, botMoveDelay = 100 }: Options): GameState & GameActions {
   const chessRef = useRef(new Chess())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validTargets, setValidTargets] = useState<Square[]>([])
@@ -1157,7 +1158,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
         }
       }
       setIsAIThinking(false)
-    }, 100)
+    }, botMoveDelay)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick])

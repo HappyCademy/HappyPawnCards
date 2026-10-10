@@ -191,6 +191,7 @@ export default function App() {
     botDepth: botCharacter?.depth,
     botRandomness: botCharacter?.randomness,
     noTimer: !!botCharacter,
+    botMoveDelay: botCharacter ? 3000 : 100,
   })
 
   // Keep external-move ref fresh so useOnlineGame can call it
