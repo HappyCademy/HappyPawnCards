@@ -74,3 +74,84 @@ export function playTimerTick() {
 }
 
 export function unlockAudio() { ac() }
+
+// ── Voice lines (MP3 via AudioContext so autoplay policy is bypassed) ─────────
+const voiceCache = new Map<string, AudioBuffer>()
+let currentVoiceNode: AudioBufferSourceNode | null = null
+let voicePending = false  // true while fetch/decode is in progress
+
+export function stopVoice() {
+  if (currentVoiceNode) {
+    try { currentVoiceNode.stop() } catch {}
+    currentVoiceNode = null
+  }
+}
+
+export async function playVoiceLine(src: string): Promise<void> {
+  voicePending = true
+  try {
+    const c = ac()
+    if (c.state === 'suspended') await c.resume()
+    let buffer = voiceCache.get(src)
+    if (!buffer) {
+      const resp = await fetch(src)
+      if (!resp.ok) { console.warn('[voice] 404:', src); return }
+      const raw = await resp.arrayBuffer()
+      buffer = await c.decodeAudioData(raw)
+      voiceCache.set(src, buffer)
+    }
+    stopVoice()
+    const node = c.createBufferSource()
+    node.buffer = buffer
+    node.connect(c.destination)
+    node.start()
+    currentVoiceNode = node
+    node.onended = () => { if (currentVoiceNode === node) currentVoiceNode = null }
+  } catch (e) {
+    console.warn('[voice] error playing', src, e)
+  } finally {
+    voicePending = false
+  }
+}
+
+const BOT_VOICE_KEYS = ['intro', 'botcaptures', 'playercaptures', 'check', 'checked', 'botwin', 'playerwins']
+const BOT_VOICE_COUNTS: Record<string, number> = {}
+
+// Fetch and decode all audio files for a character into the cache — fire and forget.
+export function preloadBotVoices(characterId: string): void {
+  const c = ac()
+  for (const key of BOT_VOICE_KEYS) {
+    const count = BOT_VOICE_COUNTS[key] ?? 3
+    for (let i = 1; i <= count; i++) {
+      const src = `/audio/bots/${characterId}-${key}${i}.mp3`
+      if (voiceCache.has(src)) continue
+      fetch(src).then(r => {
+        if (!r.ok) return
+        return r.arrayBuffer()
+      }).then(raw => {
+        if (!raw) return
+        return c.decodeAudioData(raw)
+      }).then(buffer => {
+        if (buffer) voiceCache.set(src, buffer)
+      }).catch(() => {})
+    }
+  }
+}
+
+// Polls until audio is fully idle (no pending fetch, no playback), then calls callback.
+// Waits 150ms first so React can flush commentary effects before we check.
+// Uses polling (not onended hooks) so a stopped-then-replaced voice doesn't trigger early.
+let pendingVoiceCallback: (() => void) | null = null
+
+function pollVoiceIdle() {
+  if (!pendingVoiceCallback) return
+  if (voicePending || currentVoiceNode) { setTimeout(pollVoiceIdle, 100); return }
+  const cb = pendingVoiceCallback
+  pendingVoiceCallback = null
+  setTimeout(cb, 1000)
+}
+
+export function waitForVoice(callback: () => void): void {
+  pendingVoiceCallback = callback
+  setTimeout(pollVoiceIdle, 150)
+}

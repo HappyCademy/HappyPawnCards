@@ -86,9 +86,9 @@ export function usePuzzle() {
         }
         const allMoves = gameChess.history({ verbose: true })
         puzzleChess = new Chess()
-        // initialPly is the ply number of solution[0] (1-indexed).
-        // Replay initialPly - 1 moves to land on the position where the solver moves next.
-        const plyCount = Math.min(data.puzzle.initialPly - 1, allMoves.length)
+        // initialPly is the number of half-moves to replay to reach the puzzle position,
+        // including the opponent's triggering move. Replay all initialPly moves.
+        const plyCount = Math.min(data.puzzle.initialPly, allMoves.length)
         for (let i = 0; i < plyCount; i++) {
           puzzleChess.move(allMoves[i].san)
         }
@@ -110,8 +110,12 @@ export function usePuzzle() {
         ? { from: setupMove.slice(0, 2) as Square, to: setupMove.slice(2, 4) as Square }
         : null
 
+      // After initialPly moves, chess.turn() is the opponent's color (one step past trigger),
+      // so the solver's color is the opposite.
+      const solverColor: Color = puzzleChess.turn() === 'w' ? 'b' : 'w'
+
       setPuzzleData(data)
-      setPlayerColor(puzzleChess.turn())
+      setPlayerColor(solverColor)
       setBoard(puzzleChess.board() as BoardCell[][])
       setLastMove(initialLastMove)
       setSolutionStep(0)

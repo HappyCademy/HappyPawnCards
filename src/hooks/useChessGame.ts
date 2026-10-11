@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Chess } from 'chess.js'
 import type { Square, PieceSymbol, Color } from 'chess.js'
 import { getBestMove } from '../engine/minimax'
-import { isKingOnBoard, getPseudoLegalTargets, applyPseudoLegalMove } from '../engine/pseudolegal'
+import { isKingOnBoard, getPseudoLegalTargets, applyPseudoLegalMove, filterCheckEvasion } from '../engine/pseudolegal'
 import { getPuzzlePeteBishopTargets } from '../engine/puzzlepete'
 import type { CardVariant } from '../data/cards'
 import { CARD_POWERS } from '../data/powers'
@@ -23,7 +23,7 @@ import {
 import { getKingsGuardTeleportSquares, getKingsGuardLegendaryTargets, applyKingsGuardTeleport, getSpaceKingsGuardProtectedSquares } from '../engine/kingsguard'
 import { getCrystalQueenSwapTargets, getCrystalQueenLegendarySwapTargets, applyCrystalQueenSwap } from '../engine/crystalqueen'
 import {
-  playMove, playCapture, playCheck, playPower, playWin, playLose, playTimerTick,
+  playMove, playCapture, playCheck, playPower, playWin, playLose, playTimerTick, waitForVoice,
 } from '../utils/sounds'
 import { tryAIPowerMove } from '../engine/aipowers'
 
@@ -102,12 +102,17 @@ export interface GameActions {
 // ── Pure helpers (outside hook) ────────────────────────────────────────────────
 
 function getStatus(chess: Chess): GameStatus {
-  if (!isKingOnBoard(chess, 'w')) return 'black-wins'
-  if (!isKingOnBoard(chess, 'b')) return 'white-wins'
   if (chess.isCheckmate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
   if (chess.isStalemate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
   if (chess.isDraw()) return 'draw'
+  // Safety net: if a pseudo-legal power move somehow removed a king, treat it as checkmate
+  if (!isKingOnBoard(chess, 'w')) return 'black-wins'
+  if (!isKingOnBoard(chess, 'b')) return 'white-wins'
   return 'playing'
+}
+
+function positionKey(chess: Chess): string {
+  return chess.fen().split(' ').slice(0, 4).join(' ')
 }
 
 function buildBoard(chess: Chess): (BoardPiece | null)[][] {
@@ -259,6 +264,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const promotePendingRef = useRef<{ before: Chess; from: Square } | null>(null)
   const fenHistoryRef = useRef<Array<{ fen: string; moveCount: number }>>([])
   const moveHistoryRef = useRef<string[]>([])
+  const positionListRef = useRef<string[]>([])
+  const positionCountsRef = useRef<Map<string, number>>(new Map([
+    [positionKey(new Chess()), 1],
+  ]))
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevPieceCountRef = useRef(32)
   const prevStatusRef = useRef<GameStatus>('playing')
@@ -435,6 +444,9 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       withR = applyDeathAura(withR, movedBy)
     }
     chessRef.current = withR
+    const pos = positionKey(withR)
+    positionListRef.current.push(pos)
+    positionCountsRef.current.set(pos, (positionCountsRef.current.get(pos) ?? 0) + 1)
     setLastMove({ from: fromSq, to: toSq })
     if (hasSpaceChessbeard) {
       const opponentColor = withR.turn()
@@ -563,6 +575,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     setSpaceChessbeardFrozenSquare(state.spaceChessbeardFrozenSquare as Square | null)
     moveHistoryRef.current = [...state.moveHistory]
     fenHistoryRef.current = []
+    positionListRef.current = []
+    positionCountsRef.current = new Map()
     setLastMove(state.lastMove ? state.lastMove as { from: Square; to: Square } : null)
     clearSelection()
     bump()
@@ -883,51 +897,55 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       hasCrystalQueenBase, hasCrystalQueenLegendary, hasBlackKing, hasLegendaryBlackKing, hasSpaceBlackKing, hasKingsGuard, hasLegendaryKingsGuard, hasHappyPawn, hasChessbeard, hasSpaceChessbeard, hasSpaceHappyPawn,
       hasLegendaryHappyPawn, hasLegendaryChessbeard, hasLegendaryAdmiralGambit, hasPlayerGambit, hasAIGambit, hasCrystalQueen, crystalQueenVulnerable, bump])
 
+  function applyFilters(from: Square, targets: Square[], color: Color): Square[] {
+    return filterCheckEvasion(chess, from, applyImmunityFilter(targets, color))
+  }
+
   function selectPiece(square: Square, piece: { type: PieceSymbol; color: Color }) {
     setSelectedSquare(square)
     if (hasLegendaryUnipop && piece.type === 'n') {
-      setValidTargets(applyImmunityFilter(getLegendaryUnipopTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getLegendaryUnipopTargets(chess, square), piece.color))
     } else if (hasSpaceUnipop && piece.type === 'n') {
-      setValidTargets(applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getPseudoLegalTargets(chess, square), piece.color))
     } else if (hasUnipop && piece.type === 'n') {
       const state: UnipopState = { knightSquare: square, destination: null, path: [] }
       setUnipopState(state)
-      setValidTargets(applyImmunityFilter(getUnipopTargets(chess, state), piece.color))
+      setValidTargets(applyFilters(square, getUnipopTargets(chess, state), piece.color))
       setUnipopPathCaptures([])
     } else if (hasLegendaryRobinRook && piece.type === 'r') {
-      setValidTargets(applyImmunityFilter(getRobinRookLegendaryTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getRobinRookLegendaryTargets(chess, square), piece.color))
     } else if (hasRobinRook && piece.type === 'r') {
       const shootTargets = hasSpaceRobinRook ? getAllDirShootTargets(chess, square) : getRookShootTargets(chess, square)
       if (shootTargets.length > 0) {
         setRookChoiceSquare(square)
         setValidTargets([])
       } else {
-        setValidTargets(getPseudoLegalTargets(chess, square))
+        setValidTargets(applyFilters(square, getPseudoLegalTargets(chess, square), piece.color))
       }
     } else if (hasCrystalQueenLegendary && piece.type === 'q') {
-      const normalTargets = applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color)
-      const swapTargets = getCrystalQueenLegendarySwapTargets(chess, square)
+      const normalTargets = applyFilters(square, getPseudoLegalTargets(chess, square), piece.color)
+      const swapTargets = filterCheckEvasion(chess, square, getCrystalQueenLegendarySwapTargets(chess, square))
       setValidTargets([...normalTargets, ...swapTargets])
     } else if (hasCrystalQueenBase && piece.type === 'q') {
-      const normalTargets = applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color)
-      const swapTargets = getCrystalQueenSwapTargets(chess, square)
+      const normalTargets = applyFilters(square, getPseudoLegalTargets(chess, square), piece.color)
+      const swapTargets = filterCheckEvasion(chess, square, getCrystalQueenSwapTargets(chess, square))
       setValidTargets([...normalTargets, ...swapTargets])
     } else if (hasPirateQueen && piece.type === 'q') {
-      setValidTargets(applyImmunityFilter(getPirateQueenTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getPirateQueenTargets(chess, square), piece.color))
     } else if (hasPuzzlePete && piece.type === 'b') {
-      setValidTargets(applyImmunityFilter(getPuzzlePeteBishopTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getPuzzlePeteBishopTargets(chess, square), piece.color))
     } else if (hasSpaceBlackKing && piece.type === 'k') {
-      setValidTargets(applyImmunityFilter(getSpaceBlackKingTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getSpaceBlackKingTargets(chess, square), piece.color))
     } else if (hasBlackKing && piece.type === 'k') {
-      setValidTargets(applyImmunityFilter(getBlackKingTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getBlackKingTargets(chess, square), piece.color))
     } else if (hasLegendaryKingsGuard && piece.type === 'p') {
-      setValidTargets(applyImmunityFilter(getKingsGuardLegendaryTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getKingsGuardLegendaryTargets(chess, square), piece.color))
     } else if (hasKingsGuard && piece.type === 'p' && chess.isCheck()) {
-      setValidTargets(applyImmunityFilter(getKingsGuardTeleportSquares(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getKingsGuardTeleportSquares(chess, square), piece.color))
     } else if (hasHappyPawn && piece.type === 'p') {
-      setValidTargets(applyImmunityFilter(getHappyPawnTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getHappyPawnTargets(chess, square), piece.color))
     } else {
-      setValidTargets(applyImmunityFilter(getPseudoLegalTargets(chess, square), piece.color))
+      setValidTargets(applyFilters(square, getPseudoLegalTargets(chess, square), piece.color))
     }
   }
 
@@ -1106,7 +1124,10 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     const cur = chessRef.current
     if (cur.turn() !== 'b' || getStatus(cur) !== 'playing' || resignedBy !== null) return
     setIsAIThinking(true)
-    const timer = setTimeout(() => {
+    let cancelled = false
+
+    const executeBotMove = () => {
+      if (cancelled) return
       const before = chessRef.current
 
       // The player's crystal queen is immune unless vulnerable — AI must not capture her
@@ -1158,8 +1179,16 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
         }
       }
       setIsAIThinking(false)
-    }, botMoveDelay)
-    return () => clearTimeout(timer)
+    }
+
+    if (noTimer) {
+      // Bot challenge: wait for any voice line to finish, then move
+      waitForVoice(executeBotMove)
+    } else {
+      const timer = setTimeout(executeBotMove, botMoveDelay)
+      return () => { cancelled = true; clearTimeout(timer) }
+    }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick])
 
@@ -1167,6 +1196,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     chessRef.current = new Chess()
     fenHistoryRef.current = []
     moveHistoryRef.current = []
+    positionListRef.current = []
+    positionCountsRef.current = new Map([[positionKey(new Chess()), 1]])
     clearSelection()
     setLastMove(null)
     setIsAIThinking(false)
@@ -1211,6 +1242,12 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     if (!prev) return
     moveHistoryRef.current.length = prev.moveCount
     chessRef.current = new Chess(prev.fen, { skipValidation: true })
+    const undonePos = positionListRef.current.pop()
+    if (undonePos) {
+      const n = positionCountsRef.current.get(undonePos) ?? 0
+      if (n <= 1) positionCountsRef.current.delete(undonePos)
+      else positionCountsRef.current.set(undonePos, n - 1)
+    }
     clearSelection()
     setLastMove(null)
     setCrystalQueenVulnerable(false)
@@ -1221,12 +1258,15 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   const rawStatus = getStatus(cur)
   const spaceKingPieceLoss = spaceBlackKingColor && rawStatus === 'playing'
     && cur.board().flat().filter(p => p?.color === spaceBlackKingColor).length <= 3
+  const hasThreefoldRepetition = [...positionCountsRef.current.values()].some(n => n >= 3)
   const effectiveStatus: GameStatus = timedOut
     ? (timedOut === 'w' ? 'black-wins' : 'white-wins')
     : resignedBy
     ? (resignedBy === 'w' ? 'black-wins' : 'white-wins')
     : spaceKingPieceLoss
     ? (spaceBlackKingColor === 'w' ? 'black-wins' : 'white-wins')
+    : hasThreefoldRepetition
+    ? 'draw'
     : rawStatus
 
   const chessbeardAvailable = hasChessbeard

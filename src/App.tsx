@@ -16,6 +16,7 @@ import CollectionScreen from './components/Collection/CollectionScreen'
 import PuzzleScreen from './components/Puzzle/PuzzleScreen'
 import BotChallengeScreen from './components/BotChallenge/BotChallengeScreen'
 import type { BotCharacterDef } from './data/botCharacters'
+import { playVoiceLine, stopVoice, unlockAudio, preloadBotVoices } from './utils/sounds'
 import { RARITIES, ALL_CARDS, type CardVariant, pickRandomCards } from './data/cards'
 import { CARD_POWERS } from './data/powers'
 import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dialogue'
@@ -101,11 +102,23 @@ export default function App() {
   const [pendingOnlinePicks, setPendingOnlinePicks] = useState<CardVariant[] | null>(null)
   const [onlineTimeControl, setOnlineTimeControl] = useState<number | null>(null)
   const [botCharacter, setBotCharacter] = useState<BotCharacterDef | null>(null)
+  const [overlayDismissed, setOverlayDismissed] = useState(false)
   const [commentaryLine, setCommentaryLine] = useState<string | null>(null)
   const [commentaryMood, setCommentaryMood] = useState<'confident' | 'nervous' | 'crying' | null>(null)
   const commentaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCommentaryMoveCountRef = useRef(0)
   const prevCommentaryIsCheckRef = useRef(false)
+
+  const BOT_VOICE_CATEGORY: Record<string, string> = {
+    intro: 'intro', botCaptures: 'botcaptures', playerCaptures: 'playercaptures',
+    check: 'check', botInCheck: 'checked', botWins: 'botwin', playerWins: 'playerwins',
+  }
+
+  function playBotVoice(characterId: string, category: string, idx: number) {
+    const fileKey = BOT_VOICE_CATEGORY[category]
+    if (!fileKey) return
+    playVoiceLine(`/audio/bots/${characterId}-${fileKey}${idx + 1}.mp3`)
+  }
 
   const [tokens, setTokens] = useState<number>(() => {
     try { return parseInt(localStorage.getItem('tokens') ?? '0') || 0 } catch { return 0 }
@@ -191,21 +204,18 @@ export default function App() {
     botDepth: botCharacter?.depth,
     botRandomness: botCharacter?.randomness,
     noTimer: !!botCharacter,
-    botMoveDelay: botCharacter ? 3000 : 100,
   })
 
   // Keep external-move ref fresh so useOnlineGame can call it
   useEffect(() => { externalMoveRef.current = applyExternalTurn }, [applyExternalTurn])
 
   // ── Bot commentary ────────────────────────────────────────────────────────────
-  function showCommentaryLine(lines: string[], mood: 'confident' | 'nervous' | 'crying' | null, persist = false) {
+  function showCommentaryLine(lines: string[], mood: 'confident' | 'nervous' | 'crying' | null, category: string) {
     if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
-    const line = lines[Math.floor(Math.random() * lines.length)]
-    setCommentaryLine(line)
+    const idx = Math.floor(Math.random() * lines.length)
+    setCommentaryLine(lines[idx])
     setCommentaryMood(mood)
-    if (!persist) {
-      commentaryTimerRef.current = setTimeout(() => { setCommentaryLine(null); setCommentaryMood(null) }, 3500)
-    }
+    if (botCharacter) playBotVoice(botCharacter.characterId, category, idx)
   }
 
   // Intro when bot challenge game starts
@@ -213,7 +223,7 @@ export default function App() {
     if (!botCharacter || screen !== 'game') return
     prevCommentaryMoveCountRef.current = 0
     prevCommentaryIsCheckRef.current = false
-    const t = setTimeout(() => showCommentaryLine(botCharacter.dialogue.intro, 'confident'), 400)
+    const t = setTimeout(() => showCommentaryLine(botCharacter.dialogue.intro, 'confident', 'intro'), 400)
     return () => clearTimeout(t)
   }, [botCharacter?.characterId, screen])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -229,13 +239,13 @@ export default function App() {
     const checkIsNew = isCheck && !prevCommentaryIsCheckRef.current
 
     if (checkIsNew && botJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.check, 'confident')
+      showCommentaryLine(botCharacter.dialogue.check, 'confident', 'check')
     } else if (checkIsNew && playerJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.botInCheck, 'nervous')
+      showCommentaryLine(botCharacter.dialogue.botInCheck, 'nervous', 'botInCheck')
     } else if (isCapture && botJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.botCaptures, 'confident')
+      showCommentaryLine(botCharacter.dialogue.botCaptures, 'confident', 'botCaptures')
     } else if (isCapture && playerJustMoved) {
-      showCommentaryLine(botCharacter.dialogue.playerCaptures, 'crying')
+      showCommentaryLine(botCharacter.dialogue.playerCaptures, 'crying', 'playerCaptures')
     }
 
     prevCommentaryIsCheckRef.current = isCheck
@@ -247,11 +257,9 @@ export default function App() {
     if (!botCharacter || screen !== 'game' || status === 'playing') return
     if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
     if (status === 'black-wins') {
-      const line = botCharacter.dialogue.botWins[Math.floor(Math.random() * botCharacter.dialogue.botWins.length)]
-      setCommentaryLine(line); setCommentaryMood('confident')
+      showCommentaryLine(botCharacter.dialogue.botWins, 'confident', 'botWins')
     } else if (status === 'white-wins') {
-      const line = botCharacter.dialogue.playerWins[Math.floor(Math.random() * botCharacter.dialogue.playerWins.length)]
-      setCommentaryLine(line); setCommentaryMood('crying')
+      showCommentaryLine(botCharacter.dialogue.playerWins, 'crying', 'playerWins')
     }
   }, [status, screen])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -448,6 +456,7 @@ export default function App() {
     setConfirmedTurn('w')
     setCommentaryLine(null)
     if (commentaryTimerRef.current) { clearTimeout(commentaryTimerRef.current); commentaryTimerRef.current = null }
+    stopVoice()
     setScreen('p1-selection')
   }
 
@@ -461,6 +470,7 @@ export default function App() {
     setConfirmedTurn('w')
     setCommentaryLine(null)
     if (commentaryTimerRef.current) { clearTimeout(commentaryTimerRef.current); commentaryTimerRef.current = null }
+    stopVoice()
     if (botCharacter !== null) {
       setBotCharacter(null)
       setScreen('bot-challenge')
@@ -507,7 +517,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (status === 'playing') { tokensAwardedRef.current = false; return }
+    if (status === 'playing') { setOverlayDismissed(false); tokensAwardedRef.current = false; return }
     if (screen !== 'game') return
     if (tokensAwardedRef.current) return
     tokensAwardedRef.current = true
@@ -558,6 +568,8 @@ export default function App() {
     return (
       <BotChallengeScreen
         onSelect={(bot) => {
+          unlockAudio()
+          preloadBotVoices(bot.characterId)
           setBotCharacter(bot)
           setPickedCards({ player: [], ai: [] })
           setGameMode('vsComputer')
@@ -963,7 +975,7 @@ export default function App() {
       )}
 
       {/* Game-over overlay */}
-      {status !== 'playing' && (
+      {status !== 'playing' && !overlayDismissed && (
         <GameOverOverlay
           status={status}
           timedOut={timedOut}
@@ -975,6 +987,7 @@ export default function App() {
           onPlayAgain={handlePlayAgain}
           onChangeCards={handleChangeCards}
           onMainMenu={handleMainMenu}
+          onViewBoard={() => setOverlayDismissed(true)}
         />
       )}
 
@@ -1188,7 +1201,7 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, onPlayAgain, onChangeCards, onMainMenu }: {
+function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, onPlayAgain, onChangeCards, onMainMenu, onViewBoard }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
@@ -1199,6 +1212,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   onPlayAgain: () => void
   onChangeCards: () => void
   onMainMenu: () => void
+  onViewBoard: () => void
 }) {
   const isVsPlayer = gameMode === 'vsPlayer'
   const isOnline = gameMode === 'online'
@@ -1231,24 +1245,22 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
     }
   } else if (isOnline) {
     headline = playerWins ? 'Victory!' : 'Defeat'
-    subtitle = playerWins ? "Opponent's king captured!" : 'Your king was captured!'
+    subtitle = playerWins ? 'Checkmate!' : 'Checkmated!'
   } else if (isVsPlayer) {
     headline = whiteWins ? 'Victory!' : 'Defeat'
     subtitle = timedOut
       ? `Player ${timedOut === 'w' ? '1' : '2'} ran out of time`
-      : 'King captured!'
+      : (whiteWins ? 'Checkmate!' : 'Checkmated!')
   } else {
     headline = playerWins ? 'Victory!' : 'Defeat'
     subtitle = timedOut === 'w' ? 'You ran out of time'
       : timedOut === 'b' ? 'AI ran out of time'
-      : botCharacterId
-        ? (playerWins ? 'Checkmate!' : 'Checkmated!')
-        : (playerWins ? "Opponent's king captured!" : 'Your king was captured!')
+      : (playerWins ? 'Checkmate!' : 'Checkmated!')
   }
 
   const robiSrc = !isVsPlayer && !isOnline && !isDraw
     ? botCharacterId
-      ? `/images/characters/${botCharacterId}/basic-fullbody.png`
+      ? `/images/characters/${botCharacterId}/${playerWins ? 'crying' : 'confident'}.png`
       : '/images/meca-admiral-gambit/standing.png'
     : null
 
@@ -1431,6 +1443,17 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
             }}
           >
             {isCampaign ? 'Back to Map' : 'Main Menu'}
+          </button>
+          <button
+            onClick={onViewBoard}
+            style={{
+              padding: '6px', borderRadius: '50px', cursor: 'pointer',
+              fontFamily: B, fontWeight: 500, fontSize: '12px',
+              background: 'transparent', border: 'none',
+              color: 'rgba(138,117,96,0.25)',
+            }}
+          >
+            View Board
           </button>
         </div>
       </div>

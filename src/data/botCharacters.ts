@@ -103,7 +103,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
       botInCheck: [
         "Unacceptable. Regrouping immediately.",
         "Even the Admiral may be surprised. Once.",
-        "A bold move. But I will recover.",
+        "Red alert! Intruder detected!",
       ],
       botWins: [
         "Victory follows discipline. Well fought, soldier.",
@@ -138,22 +138,22 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
         "Did you SEE THAT?! I can't believe that worked!!",
       ],
       playerCaptures: [
-        "NOOO! My beautiful chaos!! 😱",
-        "Fine fine fine, I have 17 backup plans!",
-        "Rude!! ...okay that was actually a great move though.",
+        "NOOO! My beautiful chaos!!",
+        "Fine fine fine, I have seventeen backup plans!",
+        "WAaAAaAAAAA…. Sniff sniff…But, but, but... That was MY piece you meanie…",
       ],
       check: [
-        "CHECK!! I SAID CHECK!! Did you hear me?! CHECK!!! 🚨",
-        "OOOH CHECK! Is this REAL?! 🦄✨",
-        "WAHOOOO! CHECK!!",
+        "CHECK!! I SAID CHECK!! Did you hear me?! CHECK!!!",
+        "CHECKEDI CHECK CHECK!",
+        "WAHOOOO! Gimme a C, to the H, to the E, to the C and K, CHECK!",
       ],
       botInCheck: [
         "Oh no— WAIT I meant to do that! ...Mostly.",
         "AHHAHAHA PLOT TWIST, I'M IN CHECK!!",
-        "CHAOS MODE ACTIVATED. I'll escape somehow!",
+        "BEYAAAAAAGGHAH!!! THAT WAS SCARY! DON'T DO THAT AGAIN!",
       ],
       botWins: [
-        "I WIN!! But HOW?! INCREDIBLE!! 🦄🎊",
+        "I WIN!! But HOW?! INCREDIBLE!!",
         "GREATEST DAY OF MY LIFE! Was this even my plan?? YES. YES IT WAS.",
       ],
       playerWins: [
@@ -222,33 +222,33 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     aiCardIds: ['robin-rook_1basic', 'happy-pawn_1basic'],
     dialogue: {
       intro: [
-        "...",
+        "Hey",
         "Let's play.",
         "Ready.",
       ],
       botCaptures: [
         "Taken.",
-        "...",
+        "Pathetic.",
         "Mine.",
       ],
       playerCaptures: [
-        "Noted.",
-        "...",
+        "Interesting.",
+        "Unexpected.",
         "Strong.",
       ],
       check: [
         "Check.",
-        "...",
+        "Too easy.",
         "Careful.",
       ],
       botInCheck: [
-        "...",
-        "Interesting.",
+        "How?",
+        "Beginner's luck.",
         "Adjusting.",
       ],
       botWins: [
-        "...",
-        "Well played.",
+        "An expected outcome.",
+        "Well played, kind of.",
         "Goodbye.",
       ],
       playerWins: [

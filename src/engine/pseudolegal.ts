@@ -10,6 +10,34 @@ export function isKingOnBoard(chess: Chess, color: Color): boolean {
   return false
 }
 
+function findKingSquare(chess: Chess, color: Color): Square | null {
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (p?.type === 'k' && p.color === color) return p.square as Square
+    }
+  }
+  return null
+}
+
+// When in check, filter targets to only moves that actually resolve the check.
+// Uses applyPseudoLegalMove as an approximation for all move types.
+export function filterCheckEvasion(chess: Chess, from: Square, targets: Square[]): Square[] {
+  if (!chess.isCheck()) return targets
+  const color = chess.turn()
+  const opp: Color = color === 'w' ? 'b' : 'w'
+  return targets.filter(to => {
+    const after = applyPseudoLegalMove(chess, from, to)
+    const kingSq = findKingSquare(after, color)
+    if (!kingSq) return true
+    for (const row of after.board()) {
+      for (const p of row) {
+        if (p?.color === opp && getPseudoLegalTargets(after, p.square as Square).includes(kingSq)) return false
+      }
+    }
+    return true
+  })
+}
+
 // All squares this piece can reach, ignoring whether it leaves own king in check.
 // Handles sliding pieces, knight, pawn (with en passant), and king (with castling from chess.js).
 export function getPseudoLegalTargets(chess: Chess, square: Square): Square[] {
@@ -89,20 +117,13 @@ export function getPseudoLegalTargets(chess: Chess, square: Square): Square[] {
       slide(0,1); slide(0,-1); slide(1,0); slide(-1,0)
       break
     case 'k': {
-      const kDeltas: [number,number][] = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
-      for (const [df, dr] of kDeltas) {
-        if (canLand(file+df, rank+dr)) targets.push(sq(file+df, rank+dr))
-      }
-      // Castling: pull from chess.js legal moves (it tracks castling rights correctly)
+      // Use chess.js legal moves so the king never steps onto an attacked square
       try {
-        const legal = chess.moves({ square, verbose: true })
-        for (const m of legal) {
-          const flags = (m as { flags: string }).flags
-          if ((flags.includes('k') || flags.includes('q')) && !targets.includes(m.to as Square)) {
-            targets.push(m.to as Square)
-          }
+        for (const m of chess.moves({ square, verbose: true })) {
+          const to = m.to as Square
+          if (!targets.includes(to)) targets.push(to)
         }
-      } catch { /* in check – no castling */ }
+      } catch {}
       break
     }
   }

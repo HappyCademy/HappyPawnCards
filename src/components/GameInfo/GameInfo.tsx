@@ -119,7 +119,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     statusIcon = '🎯'; statusLine = 'Robin Rook — Pick a target'
     statusColor = '#fb923c'; bannerBorderColor = 'rgba(251,146,60,0.35)'
   } else if (isAIThinking && !isVsPlayer && !isOnline) {
-    statusIcon = '⧗'; statusLine = 'AI is thinking...'
+    statusIcon = '⧗'; statusLine = `${botCharacter?.displayName ?? 'AI'} is thinking...`
     statusColor = '#a08fff'; bannerBorderColor = 'rgba(160,143,255,0.3)'
   } else if (isCheck) {
     statusIcon = '⚠'; statusLine = `${turnLabel} is in check!`
