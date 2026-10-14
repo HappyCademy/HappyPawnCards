@@ -23,7 +23,7 @@ import { FINALE_PRE_SCENES, FINALE_POST_WIN, FINALE_POST_LOSE } from './data/dia
 import { usePieceSet, pieceUrl } from './context/PieceSetContext'
 import { loadOnlineGame, loadActiveGameCache, clearActiveGame } from './lib/onlineGame'
 
-type AppScreen = 'mode' | 'puzzles' | 'bot-challenge' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
+type AppScreen = 'mode' | 'puzzles' | 'bot-challenge' | 'bot-color' | 'sign-in' | 'campaign' | 'pre-dialogue' | 'finale-dialogue' | 'post-dialogue' | 'shop' | 'collection' | 'p1-selection' | 'p2-selection' | 'online-time' | 'online-lobby' | 'game'
 
 const PLAYGROUND_URL = (window.location.hostname === 'localhost' || window.location.hostname.includes('hpc-dev'))
   ? 'https://hpc-dev.web.app/playground'
@@ -102,6 +102,8 @@ export default function App() {
   const [pendingOnlinePicks, setPendingOnlinePicks] = useState<CardVariant[] | null>(null)
   const [onlineTimeControl, setOnlineTimeControl] = useState<number | null>(null)
   const [botCharacter, setBotCharacter] = useState<BotCharacterDef | null>(null)
+  const [pendingBot, setPendingBot] = useState<BotCharacterDef | null>(null)
+  const [botPlayerColor, setBotPlayerColor] = useState<'w' | 'b'>('w')
   const [overlayDismissed, setOverlayDismissed] = useState(false)
   const [commentaryLine, setCommentaryLine] = useState<string | null>(null)
   const [commentaryMood, setCommentaryMood] = useState<'confident' | 'nervous' | 'crying' | null>(null)
@@ -204,6 +206,7 @@ export default function App() {
     botDepth: botCharacter?.depth,
     botRandomness: botCharacter?.randomness,
     noTimer: !!botCharacter,
+    playerColor: botCharacter ? botPlayerColor : 'w',
   })
 
   // Keep external-move ref fresh so useOnlineGame can call it
@@ -234,8 +237,8 @@ export default function App() {
 
     const lastMoveStr = moveHistory[moveHistory.length - 1] ?? ''
     const isCapture = lastMoveStr.includes('x')
-    const botJustMoved = turn === 'w'   // bot is black; after bot moves, it's white's turn
-    const playerJustMoved = turn === 'b'
+    const botJustMoved = turn === botPlayerColor   // after bot moves it's the player's turn
+    const playerJustMoved = turn !== botPlayerColor
     const checkIsNew = isCheck && !prevCommentaryIsCheckRef.current
 
     if (checkIsNew && botJustMoved) {
@@ -256,9 +259,11 @@ export default function App() {
   useEffect(() => {
     if (!botCharacter || screen !== 'game' || status === 'playing') return
     if (commentaryTimerRef.current) clearTimeout(commentaryTimerRef.current)
-    if (status === 'black-wins') {
+    const botWinsStatus = botPlayerColor === 'w' ? 'black-wins' : 'white-wins'
+    const playerWinsStatus = botPlayerColor === 'w' ? 'white-wins' : 'black-wins'
+    if (status === botWinsStatus) {
       showCommentaryLine(botCharacter.dialogue.botWins, 'confident', 'botWins')
-    } else if (status === 'white-wins') {
+    } else if (status === playerWinsStatus) {
       showCommentaryLine(botCharacter.dialogue.playerWins, 'crying', 'playerWins')
     }
   }, [status, screen])  // eslint-disable-line react-hooks/exhaustive-deps
@@ -570,13 +575,58 @@ export default function App() {
         onSelect={(bot) => {
           unlockAudio()
           preloadBotVoices(bot.characterId)
-          setBotCharacter(bot)
-          setPickedCards({ player: [], ai: [] })
-          setGameMode('vsComputer')
-          setScreen('game')
+          setPendingBot(bot)
+          setBotPlayerColor('w')
+          setScreen('bot-color')
         }}
         onBack={() => { setBotCharacter(null); window.location.href = PLAYGROUND_URL }}
       />
+    )
+  }
+
+  if (screen === 'bot-color' && pendingBot) {
+    const bot = pendingBot
+    function startBotGame(color: 'w' | 'b') {
+      setBotCharacter(bot)
+      setPendingBot(null)
+      setBotPlayerColor(color)
+      setPickedCards({ player: [], ai: [] })
+      setGameMode('vsComputer')
+      setScreen('game')
+    }
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center game-bg px-6 gap-8">
+        <div style={{ textAlign: 'center' }}>
+          <img src={bot.portraitSrc} alt={bot.displayName} style={{ width: '90px', height: '90px', objectFit: 'cover', objectPosition: 'top', borderRadius: '12px', marginBottom: '12px', filter: `drop-shadow(0 0 16px ${bot.themeColor}88)` }} />
+          <p style={{ fontFamily: D, color: 'var(--ivory-dim)', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' }}>vs {bot.displayName}</p>
+          <h2 style={{ fontFamily: D, color: 'var(--ivory)', fontSize: '22px', fontWeight: 700, margin: 0 }}>Choose Your Color</h2>
+        </div>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          {(['w', 'b'] as const).map(color => (
+            <button
+              key={color}
+              onClick={() => startBotGame(color)}
+              style={{
+                width: '130px', padding: '20px 12px', borderRadius: '16px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+                fontFamily: D, fontWeight: 700, fontSize: '13px', letterSpacing: '0.08em',
+                background: color === 'w' ? 'rgba(240,224,192,0.10)' : 'rgba(20,10,40,0.60)',
+                border: `2px solid ${color === 'w' ? 'rgba(240,220,160,0.45)' : 'rgba(100,80,160,0.45)'}`,
+                color: color === 'w' ? '#f0e6d0' : '#a08fff',
+                transition: 'border-color 0.15s, background 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = color === 'w' ? 'rgba(240,200,80,0.8)' : 'rgba(140,100,220,0.8)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = color === 'w' ? 'rgba(240,220,160,0.45)' : 'rgba(100,80,160,0.45)' }}
+            >
+              <span style={{ fontSize: '40px' }}>{color === 'w' ? '♙' : '♟'}</span>
+              {color === 'w' ? 'White' : 'Black'}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => { setPendingBot(null); setScreen('bot-challenge') }} style={{ fontFamily: B, color: 'var(--ivory-dim)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>
+          ← Back
+        </button>
+      </div>
     )
   }
 
@@ -834,8 +884,14 @@ export default function App() {
   const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace, onAdmiralGambitActivate, onLegendaryHappyPawnPromote, onNewGame: handleMainMenu, onUndo, onResign, applyExternalTurn }
 
   const isVsPlayer = gameMode === 'vsPlayer'
-  const topLabel = isVsPlayer ? 'Player 2 (Black)' : isOnline ? (myColor === 'b' ? 'You (Black)' : 'Opponent (Black)') : 'AI (Black)'
-  const bottomLabel = isVsPlayer ? 'Player 1 (White)' : isOnline ? (myColor === 'w' ? 'You (White)' : 'Opponent (White)') : 'You (White)'
+  const topLabel = isVsPlayer ? 'Player 2 (Black)'
+    : isOnline ? (myColor === 'b' ? 'You (Black)' : 'Opponent (Black)')
+    : botCharacter ? (botPlayerColor === 'b' ? `AI (White)` : `AI (Black)`)
+    : 'AI (Black)'
+  const bottomLabel = isVsPlayer ? 'Player 1 (White)'
+    : isOnline ? (myColor === 'w' ? 'You (White)' : 'Opponent (White)')
+    : botCharacter ? (botPlayerColor === 'b' ? 'You (Black)' : 'You (White)')
+    : 'You (White)'
 
   const { byWhite, byBlack } = computeCaptured(board)
   const whitePoints = byWhite.reduce((s, t) => s + CAPTURE_VALUES[t], 0)
@@ -935,6 +991,7 @@ export default function App() {
               onLegendaryHappyPawnPromote={onLegendaryHappyPawnPromote}
               showSpecialPieces={showSpecialPieces}
               onSpecialPieceClick={setFocusedSpecialCard}
+              flipped={botCharacter !== null && botPlayerColor === 'b'}
             />
             </div>
             <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
@@ -984,6 +1041,7 @@ export default function App() {
           myColor={myColor}
           isCampaign={campaignOpponent !== null}
           botCharacterId={botCharacter?.characterId}
+          botPlayerColor={botCharacter ? botPlayerColor : 'w'}
           onPlayAgain={handlePlayAgain}
           onChangeCards={handleChangeCards}
           onMainMenu={handleMainMenu}
@@ -1201,7 +1259,7 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, onPlayAgain, onChangeCards, onMainMenu, onViewBoard }: {
+function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, botPlayerColor, onPlayAgain, onChangeCards, onMainMenu, onViewBoard }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
@@ -1209,6 +1267,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   myColor: 'w' | 'b' | null
   isCampaign: boolean
   botCharacterId?: string | null
+  botPlayerColor?: 'w' | 'b'
   onPlayAgain: () => void
   onChangeCards: () => void
   onMainMenu: () => void
@@ -1220,7 +1279,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   const whiteWins = status === 'white-wins'
   const playerWins = isOnline
     ? (myColor === null ? false : (myColor === 'w' ? whiteWins : !whiteWins))
-    : isVsPlayer ? null : whiteWins
+    : isVsPlayer ? null : (botPlayerColor ?? 'w') === 'w' ? whiteWins : !whiteWins
 
   // Determine outcome type: 'victory' | 'defeat' | 'draw'
   const outcomeType: 'victory' | 'defeat' | 'draw' = isDraw ? 'draw'

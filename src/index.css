@@ -42,7 +42,7 @@ body {
 
 .game-bg {
   background:
-    linear-gradient(160deg, rgba(13,10,26,0.94) 0%, rgba(22,14,48,0.88) 100%),
+    linear-gradient(160deg, rgba(13,10,26,0.76) 0%, rgba(22,14,48,0.68) 100%),
     url('/images/backgrounds/board-bg.png') center / cover no-repeat fixed;
 }
 

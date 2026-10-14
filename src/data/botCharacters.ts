@@ -375,7 +375,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
         "This is only the beginning.",
       ],
       playerCaptures: [
-        "...",
+        "HOW DARE YOU?",
         "You delay the inevitable.",
         "Unexpected. Irrelevant.",
       ],
@@ -395,7 +395,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
         "Remember this defeat. Let it make you stronger.",
       ],
       playerWins: [
-        "...",
+        "How… can… this… BE?",
         "You have defeated the Black King. There are no words for such an achievement.",
         "Well played. You are truly extraordinary.",
       ],

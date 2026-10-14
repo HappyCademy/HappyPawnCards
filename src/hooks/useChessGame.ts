@@ -230,9 +230,11 @@ interface Options {
   botRandomness?: number
   noTimer?: boolean
   botMoveDelay?: number
+  playerColor?: 'w' | 'b'
 }
 
-export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0, noTimer = false, botMoveDelay = 100 }: Options): GameState & GameActions {
+export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer', onlineConfig, botDepth = 1, botRandomness = 0, noTimer = false, botMoveDelay = 100, playerColor = 'w' }: Options): GameState & GameActions {
+  const botColor: Color = playerColor === 'w' ? 'b' : 'w'
   const chessRef = useRef(new Chess())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validTargets, setValidTargets] = useState<Square[]>([])
@@ -637,8 +639,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       return
     }
 
-    // In vsComputer mode black's clicks are blocked (AI handles black's turn)
-    if (gameMode === 'vsComputer' && chess.turn() === 'b') return
+    // In vsComputer mode the bot's clicks are blocked (AI handles the bot's turn)
+    if (gameMode === 'vsComputer' && chess.turn() === botColor) return
 
     const piece = chess.get(square)
     const isMyPiece = piece && piece.color === chess.turn()
@@ -1020,7 +1022,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
       timedOut !== null ||
       resignedBy !== null ||
       getStatus(cur) !== 'playing' ||
-      (gameMode === 'vsComputer' && cur.turn() === 'b') ||
+      (gameMode === 'vsComputer' && cur.turn() === botColor) ||
       (gameMode === 'online' && onlineConfig && cur.turn() !== onlineConfig.myColor) ||
       !!blackKingBonusSquare
     ) return
@@ -1122,7 +1124,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   useEffect(() => {
     if (gameMode !== 'vsComputer') return
     const cur = chessRef.current
-    if (cur.turn() !== 'b' || getStatus(cur) !== 'playing' || resignedBy !== null) return
+    if (cur.turn() !== botColor || getStatus(cur) !== 'playing' || resignedBy !== null) return
     setIsAIThinking(true)
     let cancelled = false
 
@@ -1281,7 +1283,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     && !isRookShootMode
     && rookChoiceSquare === null
     && !isSpaceChessbeardFreezeMode
-    && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+    && !(gameMode === 'vsComputer' && cur.turn() === botColor)
 
   const spaceHappyPawnAvailable = hasSpaceHappyPawn
     && effectiveStatus === 'playing'
@@ -1294,7 +1296,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     && unipopBonusSquare === null
     && !isRookShootMode
     && rookChoiceSquare === null
-    && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+    && !(gameMode === 'vsComputer' && cur.turn() === botColor)
     && countPawnsInReserve(cur, cur.turn()) > 0
 
   const admiralGambitAvailable = hasLegendaryAdmiralGambit
@@ -1310,7 +1312,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     && rookChoiceSquare === null
     && !isSpaceChessbeardFreezeMode
     && !isSpaceHappyPawnPlaceMode
-    && !(gameMode === 'vsComputer' && cur.turn() === 'b')
+    && !(gameMode === 'vsComputer' && cur.turn() === botColor)
     && cur.board().flat().some(p => p?.type === 'p' && p.color === cur.turn())
     && cur.board().flat().some(p => p?.color === cur.turn() && p?.type !== 'p' && p?.type !== 'q')
 

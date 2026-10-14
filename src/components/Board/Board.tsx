@@ -46,6 +46,7 @@ interface Props {
   onLegendaryHappyPawnPromote?: (piece: PieceSymbol) => void
   showSpecialPieces?: boolean
   onSpecialPieceClick?: (card: CardVariant | null) => void
+  flipped?: boolean
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -65,6 +66,7 @@ export default function Board({
   onLegendaryHappyPawnPromote,
   showSpecialPieces = false,
   onSpecialPieceClick,
+  flipped = false,
 }: Props) {
   function buildPieceCardMap(cards: CardVariant[]): Partial<Record<PieceSymbol, CardVariant>> {
     const map: Partial<Record<PieceSymbol, CardVariant>> = {}
@@ -299,6 +301,12 @@ export default function Board({
 
   const unipopPathSquares = unipopState?.path ?? []
 
+  const DISPLAY_RANKS = flipped ? ['1','2','3','4','5','6','7','8'] : RANKS
+  const DISPLAY_FILES = flipped ? ['h','g','f','e','d','c','b','a'] : FILES
+  const renderBoard = flipped
+    ? [...board].reverse().map(row => [...row].reverse())
+    : board
+
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: '560px' }}>
       <div
@@ -313,10 +321,10 @@ export default function Board({
         }}
         onPointerDown={handleBoardPointerDown}
       >
-        {board.map((row, rowIdx) =>
+        {renderBoard.map((row, rowIdx) =>
           row.map((piece, colIdx) => {
-            const file = FILES[colIdx]
-            const rank = RANKS[rowIdx]
+            const file = DISPLAY_FILES[colIdx]
+            const rank = DISPLAY_RANKS[rowIdx]
             const square = (file + rank) as ChessSquare
             const isLight = (rowIdx + colIdx) % 2 === 0
             const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square
