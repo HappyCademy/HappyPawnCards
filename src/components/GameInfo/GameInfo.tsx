@@ -675,7 +675,7 @@ function BotMusicPlayer({ songSrc }: { songSrc: string }) {
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-    audio.volume = 0.2
+    audio.volume = 0.08
     audio.loop = true
     audio.muted = muted
     audio.play().catch(() => {})
