@@ -593,6 +593,7 @@ export default function App() {
       setPickedCards({ player: [], ai: [] })
       setGameMode('vsComputer')
       setScreen('game')
+      onNewGame()
     }
     return (
       <div className="min-h-screen flex flex-col items-center justify-center game-bg px-6 gap-8">

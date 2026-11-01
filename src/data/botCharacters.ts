@@ -17,11 +17,60 @@ export interface BotCharacterDef {
   themeColor: string
   portraitSrc: string
   tagline: string
+  songSrc?: string
   aiCardIds: string[]
   dialogue: BotDialogue
 }
 
 export const BOT_CHARACTERS: BotCharacterDef[] = [
+  {
+    characterId: 'happy-pawn',
+    displayName: 'Happy Pawn',
+    level: 0,
+    depth: 1,
+    randomness: 0.85,
+    themeColor: '#4ade80',
+    portraitSrc: '/images/characters/happy-pawn/basic-fullbody.png',
+    tagline: 'Super excited beginner — chess is THE BEST GAME EVER!',
+    songSrc: '/audio/songs/happy-pawn-song.mp3',
+    aiCardIds: ['happy-pawn_1basic'],
+    dialogue: {
+      intro: [
+        "Oh WOW! Are we playing chess?! This is SO EXCITING! Let's gooo! 🎉",
+        "Hi hi hi! I just learned chess and I love it SO much! Let's play!",
+        "I've been waiting all day to play chess! This is the BEST!",
+      ],
+      botCaptures: [
+        "I got one! Did you see that?! I GOT ONE!! 😄",
+        "YESSS! My piece captured yours! Chess is amazing!!",
+        "Heehee! I didn't even plan that — it just worked!!",
+      ],
+      playerCaptures: [
+        "Oh nooo! My piece!! ...It's okay, I still love chess! 🙂",
+        "You took my piece?? Wow, you're really good at this!",
+        "Aww! I have to protect my pieces better. I'm still learning!",
+      ],
+      check: [
+        "Um... I think that's check? Is that check?! I think it's check! CHECK!",
+        "Check!! Wow, I put you in check! AMAZING!!",
+        "Your king has to move! That's check right? I'm pretty sure! 😊",
+      ],
+      botInCheck: [
+        "Oh no oh no oh no — my king!! What do I do?! HELP!!",
+        "EEK! I'm in check! Okay okay, I can get out of this... maybe...",
+        "Your move was SO cool!! Even though now I'm in check... 😅",
+      ],
+      botWins: [
+        "I WON?! I WON!! THIS IS THE BEST DAY EVER!! 🎉🎉🎉",
+        "Oh my gosh OH MY GOSH — I won!! I need to tell everyone!!",
+      ],
+      playerWins: [
+        "You won! Wow, you're SO good! Will you teach me how you did that?",
+        "I lost... but I'm going to practice and get better! Just you wait! 🌟",
+      ],
+    },
+  },
+
   {
     characterId: 'chessbeard',
     displayName: 'Chessbeard',
@@ -31,6 +80,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#f59e0b',
     portraitSrc: '/images/characters/chessbeard/basic-fullbody.png',
     tagline: 'The wise old master of the chessboard.',
+    songSrc: '/audio/songs/chessbeard-wisdom.mp3',
     aiCardIds: ['chessbeard_1basic'],
     dialogue: {
       intro: [
@@ -78,6 +128,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#6366f1',
     portraitSrc: '/images/characters/general-gambit/basic-fullbody.png',
     tagline: 'The strict, righteous commander of the board.',
+    songSrc: '/audio/songs/generals-gambit-march.mp3',
     aiCardIds: ['general-gambit_6legend'],
     dialogue: {
       intro: [
@@ -125,6 +176,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#c084fc',
     portraitSrc: '/images/characters/unipop/basic-fullbody.png',
     tagline: 'Wild, chaotic, and totally unpredictable!',
+    songSrc: '/audio/songs/unipop-song.mp3',
     aiCardIds: ['unipop_1basic'],
     dialogue: {
       intro: [
@@ -172,6 +224,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#0ea5e9',
     portraitSrc: '/images/characters/crystal-queen/basic-fullbody.png',
     tagline: 'Graceful, powerful, and absolutely ruthless.',
+    songSrc: '/audio/songs/crystal-queen-song.mp3',
     aiCardIds: ['crystal-queen_1basic'],
     dialogue: {
       intro: [
@@ -219,6 +272,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#94a3b8',
     portraitSrc: '/images/characters/robin-rook/basic-fullbody.png',
     tagline: 'Few words. Maximum strength.',
+    songSrc: '/audio/songs/rookin-rooked-remastered.mp3',
     aiCardIds: ['robin-rook_1basic', 'happy-pawn_1basic'],
     dialogue: {
       intro: [
@@ -268,6 +322,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#60a5fa',
     portraitSrc: '/images/characters/kings-guard/basic-fullbody.png',
     tagline: 'Scared but devoted — the king must be protected!',
+    songSrc: '/audio/songs/kings-guard-song.mp3',
     aiCardIds: ['kings-guard_1basic', 'black-king_1basic'],
     dialogue: {
       intro: [
@@ -315,6 +370,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#f97316',
     portraitSrc: '/images/characters/puzzle-pete/basic-fullbody.png',
     tagline: 'The evil pirate who strikes where you least expect!',
+    songSrc: '/audio/songs/puzzle-pete-song.mp3',
     aiCardIds: ['pirate-queen_6legend', 'unipop_1basic'],
     dialogue: {
       intro: [
@@ -362,6 +418,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#dc2626',
     portraitSrc: '/images/characters/black-king/basic-fullbody.png',
     tagline: 'The ultimate boss. Unmatched. Undefeated.',
+    songSrc: '/audio/songs/black-king-song.mp3',
     aiCardIds: ['black-king_6legend', 'pirate-queen_6legend'],
     dialogue: {
       intro: [

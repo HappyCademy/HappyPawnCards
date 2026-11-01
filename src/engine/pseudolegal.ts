@@ -19,10 +19,9 @@ function findKingSquare(chess: Chess, color: Color): Square | null {
   return null
 }
 
-// When in check, filter targets to only moves that actually resolve the check.
-// Uses applyPseudoLegalMove as an approximation for all move types.
+// Filter targets to only moves that don't leave own king in check.
+// Catches both check evasion and pinned pieces.
 export function filterCheckEvasion(chess: Chess, from: Square, targets: Square[]): Square[] {
-  if (!chess.isCheck()) return targets
   const color = chess.turn()
   const opp: Color = color === 'w' ? 'b' : 'w'
   return targets.filter(to => {

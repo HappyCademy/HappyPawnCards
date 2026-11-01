@@ -662,6 +662,62 @@ function PlayerBadge({ label, color, active, timeLeft, portraitSrc }: {
   )
 }
 
+// ── Bot music player ──────────────────────────────────────────────────────────
+
+const MUSIC_MUTED_KEY = 'hpc_bot_music_muted'
+
+function BotMusicPlayer({ songSrc }: { songSrc: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [muted, setMuted] = useState(() => {
+    try { return localStorage.getItem(MUSIC_MUTED_KEY) === 'true' } catch { return false }
+  })
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.volume = 0.2
+    audio.loop = true
+    audio.muted = muted
+    audio.play().catch(() => {})
+    return () => { audio.pause() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.muted = muted
+    try { localStorage.setItem(MUSIC_MUTED_KEY, String(muted)) } catch {}
+  }, [muted])
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+      <audio ref={audioRef} src={songSrc} preload="none" />
+      <button
+        onClick={() => setMuted(m => !m)}
+        title={muted ? 'Unmute music' : 'Mute music'}
+        style={{
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '20px',
+          padding: '3px 8px',
+          cursor: 'pointer',
+          color: muted ? 'rgba(200,185,165,0.35)' : 'rgba(200,185,165,0.7)',
+          fontSize: '10px',
+          fontFamily: "'Nunito', system-ui, sans-serif",
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          transition: 'color 0.2s',
+        }}
+      >
+        {muted ? '🔇' : '🎵'}
+        <span style={{ letterSpacing: '0.04em' }}>{muted ? 'Music off' : 'Music on'}</span>
+      </button>
+    </div>
+  )
+}
+
 // ── Bot commentary panel (inside sidebar) ─────────────────────────────────────
 
 function BotCommentaryInline({ bot, line, mood }: {
@@ -734,6 +790,7 @@ function BotCommentaryInline({ bot, line, mood }: {
             {isTyping && <span style={{ opacity: 0.7, animation: 'blink-caret 0.6s step-end infinite' }}>▌</span>}
           </p>
         </div>
+        {bot.songSrc && <BotMusicPlayer songSrc={bot.songSrc} />}
       </div>
     </div>
   )
