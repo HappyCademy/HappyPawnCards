@@ -1223,8 +1223,8 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
   }, [bump])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const onResign = useCallback(() => {
-    setResignedBy(onlineConfig?.myColor ?? chessRef.current.turn())
-  }, [onlineConfig?.myColor])
+    setResignedBy(onlineConfig?.myColor ?? (gameMode === 'vsComputer' ? playerColor : chessRef.current.turn()))
+  }, [onlineConfig?.myColor, gameMode, playerColor])
 
   const onUndo = useCallback(() => {
     if (legendaryHappyPawnPromoteSquare && promotePendingRef.current) {
