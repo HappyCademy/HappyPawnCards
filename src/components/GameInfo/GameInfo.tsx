@@ -4,6 +4,7 @@ import type { CardVariant } from '../../data/cards'
 import { RARITIES } from '../../data/cards'
 import { CARD_POWERS } from '../../data/powers'
 import type { BotCharacterDef } from '../../data/botCharacters'
+import { setVoiceVolume, getVoiceVolume, getMusicVolume, saveMusicVolume } from '../../utils/sounds'
 import MoveHistory from './MoveHistory'
 import PieceSetPicker from './PieceSetPicker'
 
@@ -662,58 +663,53 @@ function PlayerBadge({ label, color, active, timeLeft, portraitSrc }: {
   )
 }
 
-// ── Bot music player ──────────────────────────────────────────────────────────
-
-const MUSIC_MUTED_KEY = 'hpc_bot_music_muted'
+// ── Bot volume controls (voice + music sliders) ───────────────────────────────
 
 function BotMusicPlayer({ songSrc }: { songSrc: string }) {
   const audioRef = useRef<HTMLAudioElement>(null)
-  const [muted, setMuted] = useState(() => {
-    try { return localStorage.getItem(MUSIC_MUTED_KEY) === 'true' } catch { return false }
-  })
+  const [musicVol, setMusicVol] = useState(() => getMusicVolume())
+  const [voiceVol, setVoiceVolState] = useState(() => getVoiceVolume())
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-    audio.volume = 0.08
+    audio.volume = musicVol
     audio.loop = true
-    audio.muted = muted
     audio.play().catch(() => {})
     return () => { audio.pause() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.muted = muted
-    try { localStorage.setItem(MUSIC_MUTED_KEY, String(muted)) } catch {}
-  }, [muted])
+  function handleMusicVol(v: number) {
+    setMusicVol(v)
+    saveMusicVolume(v)
+    if (audioRef.current) audioRef.current.volume = v
+  }
+
+  function handleVoiceVol(v: number) {
+    setVoiceVolState(v)
+    setVoiceVolume(v)
+  }
+
+  const sliderRow = (icon: string, label: string, val: number, onChange: (v: number) => void) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <span style={{ fontSize: '11px', width: '14px', textAlign: 'center' }}>{icon}</span>
+      <span style={{ fontSize: '9px', fontFamily: "'Nunito', system-ui, sans-serif", color: 'rgba(200,185,165,0.55)', fontWeight: 700, letterSpacing: '0.05em', width: '36px' }}>{label}</span>
+      <input
+        type="range" min={0} max={1} step={0.01} value={val}
+        onChange={e => onChange(parseFloat(e.target.value))}
+        style={{ flex: 1, accentColor: 'rgba(200,185,165,0.6)', cursor: 'pointer', height: '3px' }}
+      />
+      <span style={{ fontSize: '9px', fontFamily: 'monospace', color: 'rgba(200,185,165,0.4)', width: '22px', textAlign: 'right' }}>
+        {Math.round(val * 100)}%
+      </span>
+    </div>
+  )
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+    <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <audio ref={audioRef} src={songSrc} preload="none" />
-      <button
-        onClick={() => setMuted(m => !m)}
-        title={muted ? 'Unmute music' : 'Mute music'}
-        style={{
-          background: 'rgba(255,255,255,0.07)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: '20px',
-          padding: '3px 8px',
-          cursor: 'pointer',
-          color: muted ? 'rgba(200,185,165,0.35)' : 'rgba(200,185,165,0.7)',
-          fontSize: '10px',
-          fontFamily: "'Nunito', system-ui, sans-serif",
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          transition: 'color 0.2s',
-        }}
-      >
-        {muted ? '🔇' : '🎵'}
-        <span style={{ letterSpacing: '0.04em' }}>{muted ? 'Music off' : 'Music on'}</span>
-      </button>
+      {sliderRow('🎤', 'Voice', voiceVol, handleVoiceVol)}
+      {sliderRow('🎵', 'Music', musicVol, handleMusicVol)}
     </div>
   )
 }

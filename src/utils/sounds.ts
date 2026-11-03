@@ -1,9 +1,33 @@
 let ctx: AudioContext | null = null
+let voiceGainNode: GainNode | null = null
+
+const VOICE_VOL_KEY = 'hpc_bot_voice_vol'
+const MUSIC_VOL_KEY = 'hpc_bot_music_vol'
+
+function loadPref(key: string, def: number): number {
+  try { const v = parseFloat(localStorage.getItem(key) ?? ''); return isNaN(v) ? def : v } catch { return def }
+}
 
 function ac(): AudioContext {
-  if (!ctx) ctx = new AudioContext()
+  if (!ctx) {
+    ctx = new AudioContext()
+    voiceGainNode = ctx.createGain()
+    voiceGainNode.gain.value = loadPref(VOICE_VOL_KEY, 1)
+    voiceGainNode.connect(ctx.destination)
+  }
   if (ctx.state === 'suspended') ctx.resume()
   return ctx
+}
+
+export function setVoiceVolume(vol: number) {
+  try { localStorage.setItem(VOICE_VOL_KEY, String(vol)) } catch {}
+  if (voiceGainNode) voiceGainNode.gain.value = vol
+}
+
+export function getVoiceVolume(): number { return loadPref(VOICE_VOL_KEY, 1) }
+export function getMusicVolume(): number  { return loadPref(MUSIC_VOL_KEY, 0.08) }
+export function saveMusicVolume(vol: number) {
+  try { localStorage.setItem(MUSIC_VOL_KEY, String(vol)) } catch {}
 }
 
 function tone(
@@ -103,7 +127,7 @@ export async function playVoiceLine(src: string): Promise<void> {
     stopVoice()
     const node = c.createBufferSource()
     node.buffer = buffer
-    node.connect(c.destination)
+    node.connect(voiceGainNode ?? c.destination)
     node.start()
     currentVoiceNode = node
     node.onended = () => { if (currentVoiceNode === node) currentVoiceNode = null }
