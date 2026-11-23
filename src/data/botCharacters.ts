@@ -322,7 +322,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#60a5fa',
     portraitSrc: '/images/characters/kings-guard/basic-fullbody.png',
     tagline: 'Scared but devoted — the king must be protected!',
-    songSrc: '/audio/songs/kings-guard-song.mp3',
+    songSrc: '/audio/songs/kings-guard-retro.mp3',
     aiCardIds: ['kings-guard_1basic', 'black-king_1basic'],
     dialogue: {
       intro: [
