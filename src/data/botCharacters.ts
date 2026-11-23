@@ -32,7 +32,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#4ade80',
     portraitSrc: '/images/characters/happy-pawn/basic-fullbody.png',
     tagline: 'Super excited beginner — chess is THE BEST GAME EVER!',
-    songSrc: '/audio/songs/happy-pawn-song.mp3',
+    songSrc: '/audio/songs/happy-pawn-retro.mp3',
     aiCardIds: ['happy-pawn_1basic'],
     dialogue: {
       intro: [
