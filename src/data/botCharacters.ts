@@ -272,7 +272,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#94a3b8',
     portraitSrc: '/images/characters/robin-rook/basic-fullbody.png',
     tagline: 'Few words. Maximum strength.',
-    songSrc: '/audio/songs/rookin-rooked-remastered.mp3',
+    songSrc: '/audio/songs/robin-rook-retro.mp3',
     aiCardIds: ['robin-rook_1basic', 'happy-pawn_1basic'],
     dialogue: {
       intro: [
