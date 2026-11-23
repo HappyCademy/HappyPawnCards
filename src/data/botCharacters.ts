@@ -418,7 +418,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#dc2626',
     portraitSrc: '/images/characters/black-king/basic-fullbody.png',
     tagline: 'The ultimate boss. Unmatched. Undefeated.',
-    songSrc: '/audio/songs/black-king-song.mp3',
+    songSrc: '/audio/songs/black-king-retro.mp3',
     aiCardIds: ['black-king_6legend', 'pirate-queen_6legend'],
     dialogue: {
       intro: [
