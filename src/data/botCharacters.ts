@@ -176,7 +176,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#c084fc',
     portraitSrc: '/images/characters/unipop/basic-fullbody.png',
     tagline: 'Wild, chaotic, and totally unpredictable!',
-    songSrc: '/audio/songs/unipop-song.mp3',
+    songSrc: '/audio/songs/unipop-retro.mp3',
     aiCardIds: ['unipop_1basic'],
     dialogue: {
       intro: [
@@ -370,7 +370,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#f97316',
     portraitSrc: '/images/characters/puzzle-pete/basic-fullbody.png',
     tagline: 'The evil pirate who strikes where you least expect!',
-    songSrc: '/audio/songs/puzzle-pete-song.mp3',
+    songSrc: '/audio/songs/puzzle-pete-retro.mp3',
     aiCardIds: ['pirate-queen_6legend', 'unipop_1basic'],
     dialogue: {
       intro: [
