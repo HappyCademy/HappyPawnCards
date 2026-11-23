@@ -195,7 +195,7 @@ export default function App() {
     isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceChessbeardFrozenSquare, spaceHappyPawnAvailable,
     isAdmiralGambitPawnSelectMode, admiralGambitPawnSquare, admiralGambitAvailable,
     crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
-    timeLeft, timedOut, resignedBy,
+    timeLeft, timedOut, resignedBy, drawReason,
     onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace,
     onAdmiralGambitActivate, onLegendaryHappyPawnPromote, onNewGame, onUndo, onResign, applyExternalTurn,
   } = useChessGame({
@@ -611,15 +611,19 @@ export default function App() {
                 width: '130px', padding: '20px 12px', borderRadius: '16px', cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
                 fontFamily: D, fontWeight: 700, fontSize: '13px', letterSpacing: '0.08em',
-                background: color === 'w' ? 'rgba(240,224,192,0.10)' : 'rgba(20,10,40,0.60)',
-                border: `2px solid ${color === 'w' ? 'rgba(240,220,160,0.45)' : 'rgba(100,80,160,0.45)'}`,
-                color: color === 'w' ? '#f0e6d0' : '#a08fff',
-                transition: 'border-color 0.15s, background 0.15s',
+                background: color === 'w' ? 'rgba(255,255,255,0.92)' : 'rgba(18,12,36,0.95)',
+                border: `2px solid ${color === 'w' ? 'rgba(220,200,140,0.6)' : 'rgba(80,60,140,0.6)'}`,
+                color: color === 'w' ? '#1a1200' : '#d0c8ff',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = color === 'w' ? 'rgba(240,200,80,0.8)' : 'rgba(140,100,220,0.8)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = color === 'w' ? 'rgba(240,220,160,0.45)' : 'rgba(100,80,160,0.45)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = color === 'w' ? '0 0 0 3px rgba(240,200,80,0.5)' : '0 0 0 3px rgba(140,100,220,0.5)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '' }}
             >
-              <span style={{ fontSize: '40px' }}>{color === 'w' ? '♙' : '♟'}</span>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '50%',
+                background: color === 'w' ? '#f5f0e0' : '#1a1030',
+                border: `3px solid ${color === 'w' ? '#c8b060' : '#6040a0'}`,
+              }} />
               {color === 'w' ? 'White' : 'Black'}
             </button>
           ))}
@@ -880,7 +884,7 @@ export default function App() {
     isSpaceHappyPawnPlaceMode, isSpaceChessbeardFreezeMode, spaceChessbeardFrozenSquare, spaceHappyPawnAvailable,
     isAdmiralGambitPawnSelectMode, admiralGambitPawnSquare, admiralGambitAvailable,
     crystalQueenVulnerable, respawnedSquares, legendaryHappyPawnPromoteSquare,
-    timeLeft, timedOut, resignedBy, gameMode,
+    timeLeft, timedOut, resignedBy, drawReason, gameMode,
   }
   const actions = { onSquareClick, onRookChoice, onSkipBlackKingBonus, onChessbeardActivate, onSpaceHappyPawnPlace, onAdmiralGambitActivate, onLegendaryHappyPawnPromote, onNewGame: handleMainMenu, onUndo, onResign, applyExternalTurn }
 
@@ -899,6 +903,15 @@ export default function App() {
   const blackPoints = byBlack.reduce((s, t) => s + CAPTURE_VALUES[t], 0)
   const whiteAdvantage = Math.max(0, whitePoints - blackPoints)
   const blackAdvantage = Math.max(0, blackPoints - whitePoints)
+
+  // Bot challenge health bars
+  const TOTAL_MATERIAL = 39 // q:9 + r:5×2 + b:3×2 + n:3×2 + p:1×8
+  const playerLostPieces = botPlayerColor === 'w' ? byBlack : byWhite
+  const botLostPieces    = botPlayerColor === 'w' ? byWhite : byBlack
+  const playerLostColor: Color = botPlayerColor === 'w' ? 'w' : 'b'
+  const botLostColor: Color    = botPlayerColor === 'w' ? 'b' : 'w'
+  const playerHp = Math.max(0, TOTAL_MATERIAL - (botPlayerColor === 'w' ? blackPoints : whitePoints))
+  const botHp    = Math.max(0, TOTAL_MATERIAL - (botPlayerColor === 'w' ? whitePoints : blackPoints))
 
   return (
     <div
@@ -961,7 +974,11 @@ export default function App() {
         {/* Middle: board + sidebar */}
         <div className="flex flex-col lg:flex-row items-start justify-center gap-4 w-full">
           <div className="flex flex-col w-full lg:w-auto">
-            <CapturedPieces pieces={byBlack} capturedColor="w" advantage={blackAdvantage} />
+            {botCharacter ? (
+              <BotHealthBar label={botCharacter.displayName} hp={botHp} lostPieces={botLostPieces} lostPieceColor={botLostColor} accentColor={botCharacter.themeColor} />
+            ) : (
+              <CapturedPieces pieces={byBlack} capturedColor="w" advantage={blackAdvantage} />
+            )}
             <div className="flex items-center justify-center w-full lg:w-auto">
             <Board
               board={board}
@@ -995,7 +1012,11 @@ export default function App() {
               flipped={botCharacter !== null && botPlayerColor === 'b'}
             />
             </div>
-            <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
+            {botCharacter ? (
+              <BotHealthBar label="You" hp={playerHp} lostPieces={playerLostPieces} lostPieceColor={playerLostColor} accentColor="var(--gold-bright)" />
+            ) : (
+              <CapturedPieces pieces={byWhite} capturedColor="b" advantage={whiteAdvantage} />
+            )}
           </div>
           <div className="w-full lg:w-64 flex-shrink-0">
             <GameInfo
@@ -1038,6 +1059,7 @@ export default function App() {
           status={status}
           timedOut={timedOut}
           resignedBy={resignedBy}
+          drawReason={drawReason}
           gameMode={gameMode}
           myColor={myColor}
           isCampaign={campaignOpponent !== null}
@@ -1153,6 +1175,76 @@ function computeCaptured(board: (BoardPiece | null)[][]) {
   return { byWhite, byBlack }
 }
 
+// ── Bot challenge health bar ──────────────────────────────────────────────────
+
+function BotHealthBar({ label, hp, lostPieces, lostPieceColor, accentColor }: {
+  label: string
+  hp: number
+  lostPieces: CaptureSymbol[]
+  lostPieceColor: Color
+  accentColor: string
+}) {
+  const { pieceSet } = usePieceSet()
+  const clamped    = Math.max(0, Math.min(39, hp))
+  const fillPct    = (clamped / 39) * 100
+  const barColor   = fillPct > 60 ? '#4ade80' : fillPct > 30 ? '#fbbf24' : '#f87171'
+  const barGlow    = fillPct > 60 ? 'rgba(74,222,128,0.5)' : fillPct > 30 ? 'rgba(251,191,36,0.5)' : 'rgba(248,113,113,0.5)'
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', width: '100%', padding: '4px 4px', height: '28px' }}>
+      {/* Name */}
+      <span style={{
+        fontFamily: D, fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em',
+        textTransform: 'uppercase', color: accentColor,
+        minWidth: '40px', maxWidth: '72px', flexShrink: 0,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </span>
+
+      {/* HP bar track */}
+      <div style={{ flex: 1, height: '10px', borderRadius: '5px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{
+          height: '100%', width: `${fillPct}%`,
+          background: `linear-gradient(90deg, ${barColor}99, ${barColor})`,
+          borderRadius: '5px',
+          transition: 'width 0.55s cubic-bezier(0.4,0,0.2,1), background 0.55s',
+          boxShadow: `0 0 7px ${barGlow}`,
+        }} />
+      </div>
+
+      {/* x/39 label */}
+      <span style={{ fontFamily: 'monospace', fontSize: '9px', fontWeight: 700, color: barColor, minWidth: '32px', textAlign: 'right', flexShrink: 0 }}>
+        {clamped}/39
+      </span>
+
+      {/* Cage — only shown when pieces are lost */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '0px', alignContent: 'center',
+        padding: lostPieces.length > 0 ? '2px 4px' : '0',
+        minWidth: lostPieces.length > 0 ? '20px' : '0',
+        maxWidth: '90px', maxHeight: '22px', overflow: 'hidden', flexShrink: 0,
+        borderRadius: '5px',
+        background: lostPieces.length > 0 ? 'rgba(10,8,20,0.75)' : 'transparent',
+        border: lostPieces.length > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+        backgroundImage: lostPieces.length > 0
+          ? 'repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)'
+          : 'none',
+        transition: 'min-width 0.3s',
+      }}>
+        {lostPieces.map((type, i) => (
+          <img
+            key={i}
+            src={pieceUrl(pieceSet, lostPieceColor, type)}
+            alt={type}
+            style={{ width: '13px', height: '13px', opacity: 0.7, flexShrink: 0 }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function CapturedPieces({ pieces, capturedColor, advantage, onPieceClick }: {
   pieces: CaptureSymbol[]
   capturedColor: Color
@@ -1260,10 +1352,11 @@ function CardStrip({ label, cards, accent, onCardClick }: {
   )
 }
 
-function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCampaign, botCharacterId, botPlayerColor, onPlayAgain, onChangeCards, onMainMenu, onViewBoard }: {
+function GameOverOverlay({ status, timedOut, resignedBy, drawReason, gameMode, myColor, isCampaign, botCharacterId, botPlayerColor, onPlayAgain, onChangeCards, onMainMenu, onViewBoard }: {
   status: GameStatus
   timedOut: Color | null
   resignedBy: Color | null
+  drawReason: string | null
   gameMode: GameMode
   myColor: 'w' | 'b' | null
   isCampaign: boolean
@@ -1291,7 +1384,7 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
   let headline: string
   let subtitle: string
   if (isDraw) {
-    headline = 'Draw'; subtitle = 'The game is drawn'
+    headline = 'Draw'; subtitle = drawReason ?? 'The game is drawn'
   } else if (resignedBy !== null) {
     if (isOnline) {
       headline = playerWins ? 'Victory!' : 'Defeat'
@@ -1439,60 +1532,30 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
 
         {/* Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-          {!isOnline && (
+          {/* All action buttons share the same ghost style so none dominates */}
+          {[
+            { label: '♟ View Board', onClick: onViewBoard, show: true },
+            { label: '↺ Play Again', onClick: onPlayAgain, show: !isOnline },
+            { label: '🌐 Play Again', onClick: onMainMenu, show: isOnline },
+            { label: '⇄ Change Cards', onClick: onChangeCards, show: !isOnline && !botCharacterId },
+          ].filter(b => b.show).map(b => (
             <button
-              onClick={onPlayAgain}
+              key={b.label}
+              onClick={b.onClick}
               style={{
-                padding: '14px', borderRadius: '50px', cursor: 'pointer',
-                fontFamily: D, fontWeight: 700, fontSize: '14px', letterSpacing: '0.1em',
-                background: isVictory
-                  ? 'linear-gradient(135deg, #c9a227 0%, #f0c040 50%, #c9a227 100%)'
-                  : 'linear-gradient(160deg, #3a1060 0%, #1a0d36 100%)',
-                border: `2px solid ${isVictory ? '#f0c040' : 'rgba(201,162,39,0.4)'}`,
-                color: isVictory ? '#0d0a1a' : 'var(--gold-bright)',
-                boxShadow: isVictory
-                  ? '0 4px 24px rgba(201,162,39,0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
-                  : '0 4px 16px rgba(201,162,39,0.2)',
-                textTransform: 'uppercase',
-              }}
-            >
-              {isVictory ? '♛ Play Again' : '↺ Try Again'}
-            </button>
-          )}
-          {isOnline && (
-            <button
-              onClick={onMainMenu}
-              style={{
-                padding: '14px', borderRadius: '50px', cursor: 'pointer',
-                fontFamily: D, fontWeight: 700, fontSize: '14px', letterSpacing: '0.1em',
-                background: isVictory
-                  ? 'linear-gradient(135deg, #c9a227 0%, #f0c040 50%, #c9a227 100%)'
-                  : 'linear-gradient(160deg, #3a1060 0%, #1a0d36 100%)',
-                border: `2px solid ${isVictory ? '#f0c040' : 'rgba(201,162,39,0.4)'}`,
-                color: isVictory ? '#0d0a1a' : 'var(--gold-bright)',
-                boxShadow: isVictory
-                  ? '0 4px 24px rgba(201,162,39,0.5), inset 0 1px 0 rgba(255,255,255,0.2)'
-                  : '0 4px 16px rgba(201,162,39,0.2)',
-                textTransform: 'uppercase',
-              }}
-            >
-              🌐 Play Again
-            </button>
-          )}
-          {!isOnline && !botCharacterId && (
-            <button
-              onClick={onChangeCards}
-              style={{
-                padding: '11px', borderRadius: '50px', cursor: 'pointer',
-                fontFamily: D, fontWeight: 600, fontSize: '12px', letterSpacing: '0.06em',
+                padding: '12px', borderRadius: '50px', cursor: 'pointer',
+                fontFamily: D, fontWeight: 600, fontSize: '13px', letterSpacing: '0.06em',
                 background: 'rgba(13,10,26,0.6)',
-                border: `1.5px solid ${borderColor}66`,
-                color: 'var(--ivory-dim)', textTransform: 'uppercase',
+                border: `1.5px solid ${borderColor}88`,
+                color: 'var(--ivory)', textTransform: 'uppercase',
+                transition: 'border-color 0.15s, background 0.15s',
               }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = borderColor; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = `${borderColor}88`; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(13,10,26,0.6)' }}
             >
-              Change Cards
+              {b.label}
             </button>
-          )}
+          ))}
           <button
             onClick={onMainMenu}
             style={{
@@ -1503,17 +1566,6 @@ function GameOverOverlay({ status, timedOut, resignedBy, gameMode, myColor, isCa
             }}
           >
             {isCampaign ? 'Back to Map' : 'Main Menu'}
-          </button>
-          <button
-            onClick={onViewBoard}
-            style={{
-              padding: '6px', borderRadius: '50px', cursor: 'pointer',
-              fontFamily: B, fontWeight: 500, fontSize: '12px',
-              background: 'transparent', border: 'none',
-              color: 'rgba(138,117,96,0.25)',
-            }}
-          >
-            View Board
           </button>
         </div>
       </div>

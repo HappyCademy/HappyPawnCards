@@ -83,6 +83,7 @@ export interface GameState {
   timedOut: Color | null
   resignedBy: Color | null
   gameMode: GameMode
+  drawReason: string | null
 }
 
 export interface GameActions {
@@ -101,13 +102,41 @@ export interface GameActions {
 
 // ── Pure helpers (outside hook) ────────────────────────────────────────────────
 
+// Independent check detection using our own attack maps (not chess.js internals).
+// Power moves create Chess instances with skipValidation:true; on those FENs chess.js
+// can report isCheck()=true for a king that isn't actually attacked. This function
+// is the authoritative source for whether the current player's king is under attack.
+function isKingAttacked(chess: Chess, color: Color): boolean {
+  const opp: Color = color === 'w' ? 'b' : 'w'
+  let kingSq: Square | null = null
+  outer: for (const row of chess.board()) {
+    for (const p of row) {
+      if (p?.type === 'k' && p.color === color) { kingSq = p.square as Square; break outer }
+    }
+  }
+  if (!kingSq) return false
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (p?.color === opp && getPseudoLegalTargets(chess, p.square as Square).includes(kingSq)) return true
+    }
+  }
+  return false
+}
+
 function getStatus(chess: Chess): GameStatus {
-  if (chess.isCheckmate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
-  if (chess.isStalemate()) return chess.turn() === 'w' ? 'black-wins' : 'white-wins'
-  if (chess.isDraw()) return 'draw'
-  // Safety net: if a pseudo-legal power move somehow removed a king, treat it as checkmate
+  // Safety net: if a pseudo-legal power move somehow removed a king, treat it as a win
   if (!isKingOnBoard(chess, 'w')) return 'black-wins'
   if (!isKingOnBoard(chess, 'b')) return 'white-wins'
+
+  if (chess.isCheckmate() || chess.isStalemate()) {
+    // On positions reached via power moves (skipValidation FENs), chess.js's internal
+    // check detection can be wrong. Use our own attack maps to tell checkmate from stalemate.
+    const inCheck = isKingAttacked(chess, chess.turn())
+    return inCheck
+      ? (chess.turn() === 'w' ? 'black-wins' : 'white-wins')
+      : 'draw'
+  }
+  if (chess.isDraw()) return 'draw'
   return 'playing'
 }
 
@@ -1271,6 +1300,14 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     ? 'draw'
     : rawStatus
 
+  let drawReason: string | null = null
+  if (effectiveStatus === 'draw') {
+    if (hasThreefoldRepetition) drawReason = 'Threefold repetition'
+    else if (cur.isStalemate()) drawReason = 'Stalemate'
+    else if (cur.isInsufficientMaterial()) drawReason = 'Insufficient material'
+    else drawReason = '50-move rule'
+  }
+
   const chessbeardAvailable = hasChessbeard
     && !hasSpaceChessbeard
     && effectiveStatus === 'playing'
@@ -1351,6 +1388,7 @@ export function useChessGame({ playerCards, aiCards = [], gameMode = 'vsComputer
     timedOut,
     resignedBy,
     gameMode,
+    drawReason,
     onSquareClick,
     onRookChoice,
     onSkipBlackKingBonus,

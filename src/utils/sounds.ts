@@ -25,7 +25,7 @@ export function setVoiceVolume(vol: number) {
 }
 
 export function getVoiceVolume(): number { return loadPref(VOICE_VOL_KEY, 1) }
-export function getMusicVolume(): number  { return loadPref(MUSIC_VOL_KEY, 0.08) }
+export function getMusicVolume(): number  { return loadPref(MUSIC_VOL_KEY, 0.03) }
 export function saveMusicVolume(vol: number) {
   try { localStorage.setItem(MUSIC_VOL_KEY, String(vol)) } catch {}
 }
