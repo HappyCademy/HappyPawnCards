@@ -224,7 +224,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#0ea5e9',
     portraitSrc: '/images/characters/crystal-queen/basic-fullbody.png',
     tagline: 'Graceful, powerful, and absolutely ruthless.',
-    songSrc: '/audio/songs/crystal-queen-song.mp3',
+    songSrc: '/audio/songs/crystal-queen-retro.mp3',
     aiCardIds: ['crystal-queen_1basic'],
     dialogue: {
       intro: [
