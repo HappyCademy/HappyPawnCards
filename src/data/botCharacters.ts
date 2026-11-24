@@ -80,7 +80,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#f59e0b',
     portraitSrc: '/images/characters/chessbeard/basic-fullbody.png',
     tagline: 'The wise old master of the chessboard.',
-    songSrc: '/audio/songs/chessbeard-wisdom.mp3',
+    songSrc: '/audio/songs/chessbeard-retro.mp3',
     aiCardIds: ['chessbeard_1basic'],
     dialogue: {
       intro: [
