@@ -128,7 +128,7 @@ export const BOT_CHARACTERS: BotCharacterDef[] = [
     themeColor: '#6366f1',
     portraitSrc: '/images/characters/general-gambit/basic-fullbody.png',
     tagline: 'The strict, righteous commander of the board.',
-    songSrc: '/audio/songs/generals-gambit-march.mp3',
+    songSrc: '/audio/songs/generals-gambit-retro.mp3',
     aiCardIds: ['general-gambit_6legend'],
     dialogue: {
       intro: [
