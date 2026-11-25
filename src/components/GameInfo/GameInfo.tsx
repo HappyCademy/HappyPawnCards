@@ -150,7 +150,7 @@ export default function GameInfo({ state, actions, focusedSpecialCard = null, sh
     : isRookShootMode ? 'Click an orange-highlighted enemy to shoot'
     : isCheck ? 'Get your king out of danger!'
     : isMyTurn ? "Capture the opponent's king to win!"
-    : (isVsPlayer || isOnline ? "Capture the opponent's king to win!" : 'Waiting for AI...')
+    : (isVsPlayer || isOnline ? "Capture the opponent's king to win!" : `Waiting for ${botCharacter?.displayName ?? 'AI'}...`)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', color: 'var(--ivory)', fontFamily: B }}>
